@@ -3,10 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Forest Walk</title>
+    <title>Our Story — Gabriel & Valerie</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Bangers&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
+
+    <!-- Welcome Screen -->
+    <div id="welcome-screen">
+      <div class="hearts-bg">
+        <span class="floating-heart" style="--i:0">&#10084;</span>
+        <span class="floating-heart" style="--i:1">&#10084;</span>
+        <span class="floating-heart" style="--i:2">&#10084;</span>
+        <span class="floating-heart" style="--i:3">&#10084;</span>
+        <span class="floating-heart" style="--i:4">&#10084;</span>
+        <span class="floating-heart" style="--i:5">&#10084;</span>
+        <span class="floating-heart" style="--i:6">&#10084;</span>
+        <span class="floating-heart" style="--i:7">&#10084;</span>
+        <span class="floating-heart" style="--i:8">&#10084;</span>
+        <span class="floating-heart" style="--i:9">&#10084;</span>
+      </div>
+      <div class="welcome-content">
+        <h1 class="welcome-title">Our Story</h1>
+        <p class="welcome-subtitle">Gabriel & Valerie</p>
+        <p class="welcome-tagline">A love story told one chapter at a time</p>
+        <button id="play-btn">
+          <span class="btn-heart">&#10084;</span>
+          Begin
+          <span class="btn-heart">&#10084;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Story Panel Overlay -->
+    <div id="story-panel" class="hidden">
+      <div class="panel-backdrop"></div>
+      <div class="panel-card">
+        <div class="panel-date-badge" id="panel-date"></div>
+        <div class="panel-number" id="panel-number"></div>
+        <h2 class="panel-title" id="panel-title"></h2>
+        <div class="panel-body" id="panel-body"></div>
+        <div class="panel-quote hidden" id="panel-quote"></div>
+        <button class="panel-continue-btn" id="panel-continue">
+          Continue <span>&#10140;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- HUD (during gameplay) -->
+    <div id="game-hud" class="hidden">
+      <div class="hud-hint" id="hud-hint">Walk towards the glowing heart ahead</div>
+      <div class="hud-progress" id="hud-progress"></div>
+    </div>
+
+    <!-- Finale Screen -->
+    <div id="finale-screen" class="hidden">
+      <div class="hearts-bg">
+        <span class="floating-heart" style="--i:0">&#10084;</span>
+        <span class="floating-heart" style="--i:1">&#10084;</span>
+        <span class="floating-heart" style="--i:2">&#10084;</span>
+        <span class="floating-heart" style="--i:3">&#10084;</span>
+        <span class="floating-heart" style="--i:4">&#10084;</span>
+        <span class="floating-heart" style="--i:5">&#10084;</span>
+        <span class="floating-heart" style="--i:6">&#10084;</span>
+        <span class="floating-heart" style="--i:7">&#10084;</span>
+        <span class="floating-heart" style="--i:8">&#10084;</span>
+        <span class="floating-heart" style="--i:9">&#10084;</span>
+      </div>
+      <div class="finale-content">
+        <h1 class="finale-title">Happy Valentine's Day</h1>
+        <p class="finale-name">Valerie</p>
+        <p class="finale-message">From the moment you requested to follow me, to 12 hours at 1000 Faces — every chapter led me to you.</p>
+        <p class="finale-heart">&#10084;</p>
+        <button id="replay-btn">Replay Our Story</button>
+      </div>
+    </div>
+
     <div id="app"></div>
     <script type="module" src="/main.js"></script>
   </body>
