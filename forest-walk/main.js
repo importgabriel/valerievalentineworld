@@ -2,7 +2,9 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { chapters } from "./chapters.js";
-import { buildCity, updateEntranceMarkers } from "./city.js";
+import { buildHallway, updateDoorMarkers, updateHallwayLights, HALLWAY_BOUNDS, DOOR_TRIGGER_RADIUS, getDoorPosition } from "./hub.js";
+import { SceneManager } from "./sceneManager.js";
+import { SequenceRunner } from "./sequenceRunner.js";
 
 // ========================================
 // GAME STATE
@@ -47,12 +49,8 @@ const continueBtn = document.getElementById("continue-btn");
 const transitionOverlay = document.getElementById("transition-overlay");
 
 // ========================================
-// THREE.JS SCENE SETUP — Bright AC daytime
+// THREE.JS RENDERER SETUP
 // ========================================
-
-const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xd4e6f1, 40, 80);
-scene.background = new THREE.Color(0x87ceeb);
 
 const renderer = new THREE.WebGLRenderer({
   antialias: true,
@@ -62,43 +60,37 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 0.9;
 document.body.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(
+// ========================================
+// SCENE MANAGER
+// ========================================
+
+const sceneManager = new SceneManager(renderer);
+const sequenceRunner = new SequenceRunner();
+
+// ========================================
+// HUB SCENE (Hotel Hallway)
+// ========================================
+
+const hubScene = new THREE.Scene();
+const hubCamera = new THREE.PerspectiveCamera(
   55,
   window.innerWidth / window.innerHeight,
   0.1,
-  80
+  100
 );
 
-// ========================================
-// LIGHTING — Warm AC sunlight (3 lights total)
-// ========================================
-
-const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.0);
-sunLight.position.set(10, 20, 10);
-scene.add(sunLight);
-
-const ambient = new THREE.AmbientLight(0xfff8f0, 0.5);
-scene.add(ambient);
-
-const hemi = new THREE.HemisphereLight(0x87ceeb, 0x7ec850, 0.4);
-scene.add(hemi);
-
-// ========================================
-// BUILD VILLAGE
-// ========================================
-
-const { storyBuildings, entranceMarkers } = buildCity(scene, chapters);
+const { doors, markers, lights } = buildHallway(hubScene, chapters);
 
 // ========================================
 // PLAYER
 // ========================================
 
 const player = new THREE.Object3D();
-player.position.set(0, 0, -3);
-scene.add(player);
+player.position.set(0, 0, 4);
+hubScene.add(player);
 
 const gltfLoader = new GLTFLoader();
 const fbxLoader = new FBXLoader();
@@ -107,7 +99,6 @@ let mixer = null;
 let walkAction = null;
 let isWalking = false;
 
-// Parallel asset loading
 Promise.all([
   gltfLoader.loadAsync("/models/avatar/valerie1.glb"),
   fbxLoader.loadAsync("/models/animations/Walking.fbx"),
@@ -130,6 +121,15 @@ Promise.all([
   .catch((error) => {
     console.error("Error loading assets:", error);
   });
+
+// Register hub scene with scene manager
+sceneManager.setHub({
+  scene: hubScene,
+  camera: hubCamera,
+  update(dt) {
+    // Hub-specific updates happen in the main update() function
+  },
+});
 
 // ========================================
 // INPUT STATE
@@ -168,7 +168,7 @@ window.addEventListener("mousemove", (e) => {
     cameraPitch = THREE.MathUtils.clamp(
       cameraPitch - dy * 0.004,
       0.1,
-      1.3
+      1.0
     );
   }
 });
@@ -195,7 +195,6 @@ function getGamepadInput() {
   };
 }
 
-// Button edge detection — poll all buttons once per frame
 const currButtons = new Array(17).fill(false);
 const prevButtons = new Array(17).fill(false);
 
@@ -217,7 +216,6 @@ function saveButtonState() {
   }
 }
 
-// Gamepad connection detection
 window.addEventListener("gamepadconnected", () => {
   gamepadConnected = true;
   if (hudControls) {
@@ -238,23 +236,21 @@ window.addEventListener("gamepaddisconnected", () => {
 // ========================================
 
 const playerVelocity = new THREE.Vector3();
-let cameraYaw = Math.PI;
-let cameraPitch = 0.4;
+let cameraYaw = 0;
+let cameraPitch = 0.3;
 
 const MOVE_SPEED = 4.0;
 const MOVE_ACCEL = 15.0;
 const MOVE_DECEL = 10.0;
 const TURN_SPEED = 8.0;
 
-const CAM_DISTANCE = 8.0;
-const CAM_HEIGHT = 3.0;
-const CAM_LOOKAT_HEIGHT = 1.8;
+const CAM_DISTANCE = 5.0;
+const CAM_HEIGHT = 2.0;
+const CAM_LOOKAT_HEIGHT = 1.5;
 const CAM_SMOOTHING = 10.0;
 const CAM_STICK_SENSITIVITY = 3.0;
 
-const TRIGGER_RADIUS = 3.0;
-
-// Pre-allocated temp vectors (avoid per-frame GC)
+// Pre-allocated temp vectors
 const _moveDir = new THREE.Vector3();
 const _upAxis = new THREE.Vector3(0, 1, 0);
 const _zeroVec = new THREE.Vector3();
@@ -343,6 +339,18 @@ function handleChoice(choice, chapterIndex) {
 function continueAfterCorrectChoice() {
   rightChoiceOverlay.classList.add("hidden");
 
+  // If we were in a level scene, clean up
+  if (sceneManager.isInLevel()) {
+    sequenceRunner.stop();
+
+    // Move character back to hub
+    if (characterModel) {
+      player.add(characterModel);
+    }
+
+    sceneManager.exitLevel();
+  }
+
   if (visitedChapters.size === chapters.length) {
     setTimeout(() => {
       gameState = "finale";
@@ -362,6 +370,16 @@ function continueAfterCorrectChoice() {
 
 function retryChapter() {
   wrongChoiceOverlay.classList.add("hidden");
+
+  const chapter = chapters[currentChapterIndex];
+
+  // If in a level scene, restart the sequence
+  if (sceneManager.isInLevel() && chapter.sequence) {
+    gameState = "level_sequence";
+    // Re-run sequence from the choice beat (skip the cinematic intro, just show choice again)
+    showChoicePanel(currentChapterIndex);
+    return;
+  }
 
   doTransition(() => {
     showStoryPanel(currentChapterIndex);
@@ -391,6 +409,22 @@ function doTransition(callback) {
   }, 500);
 }
 
+function doDoorTransition(callback) {
+  transitionOverlay.classList.remove("hidden");
+  transitionOverlay.classList.add("door-open");
+
+  setTimeout(() => {
+    callback();
+    transitionOverlay.classList.remove("door-open");
+    transitionOverlay.classList.add("fade-out");
+
+    setTimeout(() => {
+      transitionOverlay.classList.add("hidden");
+      transitionOverlay.classList.remove("fade-out");
+    }, 600);
+  }, 800);
+}
+
 function updateHud() {
   hudProgress.textContent = `${visitedChapters.size} / ${chapters.length}`;
 }
@@ -398,7 +432,7 @@ function updateHud() {
 function updateHudHint() {
   const nextIndex = getNextChapterIndex();
   if (nextIndex >= 0) {
-    hudHint.textContent = `Walk towards the glowing marker \u2014 ${chapters[nextIndex].title}`;
+    hudHint.textContent = `Walk towards the glowing door \u2014 ${chapters[nextIndex].title}`;
     hudHint.style.opacity = "1";
     setTimeout(() => {
       hudHint.style.opacity = "0";
@@ -422,15 +456,94 @@ function replayGame() {
   visitedChapters.clear();
   currentChapterIndex = 0;
   gameState = "welcome";
-  player.position.set(0, 0, -3);
+  player.position.set(0, 0, 4);
   playerVelocity.set(0, 0, 0);
-  cameraYaw = Math.PI;
-  cameraPitch = 0.4;
+  cameraYaw = 0;
+  cameraPitch = 0.3;
+
+  // Ensure we're back on hub
+  if (sceneManager.isInLevel()) {
+    sequenceRunner.stop();
+    if (characterModel) {
+      player.add(characterModel);
+    }
+    sceneManager.exitLevel();
+  }
 
   finaleScreen.classList.add("hidden");
   gameHud.classList.add("hidden");
   welcomeScreen.classList.remove("hidden");
   welcomeScreen.classList.remove("fade-out");
+}
+
+// ========================================
+// LEVEL ENTRY
+// ========================================
+
+async function enterLevel(chapterIndex) {
+  const chapter = chapters[chapterIndex];
+
+  if (!chapter.levelModule) {
+    // No custom level — use traditional text panel flow
+    doTransition(() => {
+      showStoryPanel(chapterIndex);
+    });
+    gameState = "entering_zone";
+    return;
+  }
+
+  // Custom level scene — do door transition
+  gameState = "entering_zone";
+
+  doDoorTransition(async () => {
+    const levelScene = await sceneManager.enterLevel(chapter);
+
+    if (!levelScene) {
+      // Fallback if level failed to load
+      showStoryPanel(chapterIndex);
+      return;
+    }
+
+    // Move character model into the level scene
+    if (characterModel) {
+      player.remove(characterModel);
+      if (levelScene.playerAnchor) {
+        levelScene.playerAnchor.add(characterModel);
+        characterModel.position.set(0, 0, 0);
+        characterModel.rotation.set(0, 0, 0);
+      } else {
+        levelScene.scene.add(characterModel);
+        characterModel.position.set(0, 0, 0);
+      }
+    }
+
+    // Stop walking animation in level
+    if (walkAction && isWalking) {
+      walkAction.fadeOut(0.3);
+      isWalking = false;
+    }
+
+    // Start the narrative sequence
+    gameState = "level_sequence";
+
+    sequenceRunner.onComplete = () => {
+      // Sequence ended — if last beat was show_choice, choice panel is already showing
+    };
+
+    const seqContext = {
+      scene: levelScene.scene,
+      camera: levelScene.camera,
+      player: levelScene.playerAnchor || characterModel,
+      onShowChoice: () => {
+        showChoicePanel(chapterIndex);
+      },
+      onShowStory: () => {
+        showStoryPanel(chapterIndex);
+      },
+    };
+
+    sequenceRunner.start(chapter.sequence, seqContext);
+  });
 }
 
 // ========================================
@@ -460,7 +573,6 @@ window.addEventListener("keydown", (e) => {
       if (btns[selectedChoiceIndex]) btns[selectedChoiceIndex].click();
     }
   }
-  // Arrow/WASD for choice navigation
   if (gameState === "choice") {
     const btns = choiceOptions.querySelectorAll(".choice-btn");
     if (e.code === "ArrowUp" || e.code === "KeyW") {
@@ -481,7 +593,6 @@ window.addEventListener("keydown", (e) => {
 // ========================================
 
 function handleGamepadButtons() {
-  // A button (0) - Confirm
   if (buttonJustPressed(0)) {
     if (gameState === "welcome") {
       startGame();
@@ -502,7 +613,6 @@ function handleGamepadButtons() {
     }
   }
 
-  // D-pad Up (12)
   if (buttonJustPressed(12)) {
     if (gameState === "choice") {
       const btns = choiceOptions.querySelectorAll(".choice-btn");
@@ -512,7 +622,6 @@ function handleGamepadButtons() {
     }
   }
 
-  // D-pad Down (13)
   if (buttonJustPressed(13)) {
     if (gameState === "choice") {
       const btns = choiceOptions.querySelectorAll(".choice-btn");
@@ -529,40 +638,54 @@ function handleGamepadButtons() {
 function update(dt) {
   elapsedTime += dt;
 
-  // Update animation mixer
   if (mixer) mixer.update(dt);
-
-  // Update entrance markers
-  updateEntranceMarkers(
-    entranceMarkers,
-    currentChapterIndex,
-    visitedChapters,
-    elapsedTime
-  );
 
   // Handle gamepad buttons (poll → check → save)
   pollGamepadButtons();
   handleGamepadButtons();
   saveButtonState();
 
-  // Welcome screen — slow camera orbit
+  // Welcome screen — slow camera dolly down the hallway
   if (gameState === "welcome") {
-    const wt = elapsedTime * 0.15;
-    camera.position.set(
-      Math.sin(wt) * 18,
-      8,
-      Math.cos(wt) * 18 + 20
+    const wt = elapsedTime * 0.12;
+    hubCamera.position.set(
+      Math.sin(wt * 0.3) * 0.5,
+      2.2,
+      3 + wt * 3
     );
-    camera.lookAt(0, 3, 30);
+    hubCamera.lookAt(0, 2, hubCamera.position.z + 8);
+
+    // Loop the camera position to create endless hallway feel
+    if (hubCamera.position.z > 70) {
+      elapsedTime -= 70 / (0.12 * 3);
+    }
     return;
   }
+
+  // Level sequence — update the sequence runner
+  if (gameState === "level_sequence") {
+    sequenceRunner.update(dt);
+    sceneManager.update(dt);
+    return;
+  }
+
+  // Level active (after sequence, waiting for choice result, etc.)
+  if (sceneManager.isInLevel()) {
+    sceneManager.update(dt);
+    return;
+  }
+
+  // Update door markers in hub
+  updateDoorMarkers(markers, currentChapterIndex, visitedChapters, elapsedTime);
+
+  // Update dynamic hall lights to follow player
+  updateHallwayLights(lights, player.position.z);
 
   // Only process movement during hub state
   if (gameState !== "hub") return;
 
   const gp = getGamepadInput();
 
-  // Gather movement input
   let inputX = gp.moveX;
   let inputZ = gp.moveY;
 
@@ -580,11 +703,11 @@ function update(dt) {
     cameraPitch = THREE.MathUtils.clamp(
       cameraPitch - gp.lookY * CAM_STICK_SENSITIVITY * dt,
       0.1,
-      1.3
+      1.0
     );
   }
 
-  // Movement direction (camera-relative) — pre-allocated vectors
+  // Movement direction (camera-relative)
   _moveDir.set(inputX, 0, inputZ);
   const moveLength = Math.min(_moveDir.length(), 1);
   const wasWalking = isWalking;
@@ -611,7 +734,7 @@ function update(dt) {
     isWalking = false;
   }
 
-  // Handle walking animation
+  // Walking animation
   if (walkAction) {
     if (isWalking && !wasWalking) {
       walkAction.reset();
@@ -622,49 +745,54 @@ function update(dt) {
     }
   }
 
-  // Apply velocity — pre-allocated
+  // Apply velocity
   _velDelta.copy(playerVelocity).multiplyScalar(dt);
   player.position.add(_velDelta);
 
-  // Clamp player to city bounds
-  player.position.x = THREE.MathUtils.clamp(player.position.x, -10, 10);
-  player.position.z = THREE.MathUtils.clamp(player.position.z, -5, 160);
+  // Clamp player to hallway bounds
+  player.position.x = THREE.MathUtils.clamp(
+    player.position.x,
+    HALLWAY_BOUNDS.minX,
+    HALLWAY_BOUNDS.maxX
+  );
+  player.position.z = THREE.MathUtils.clamp(
+    player.position.z,
+    HALLWAY_BOUNDS.minZ,
+    HALLWAY_BOUNDS.maxZ
+  );
 
-  // Check entrance triggers
+  // Check door triggers
   const nextChapter = chapters[currentChapterIndex];
   if (nextChapter) {
-    const side = currentChapterIndex % 2 === 0 ? -1 : 1;
-    const entranceX = side * 7;
-    const entranceZ = nextChapter.hubPosition.z;
+    const doorPos = getDoorPosition(currentChapterIndex);
 
-    const dx = player.position.x - entranceX;
-    const dz = player.position.z - entranceZ;
+    const dx = player.position.x - doorPos.x;
+    const dz = player.position.z - doorPos.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
 
-    if (dist < TRIGGER_RADIUS) {
-      doTransition(() => {
-        showStoryPanel(currentChapterIndex);
-      });
-      gameState = "entering_zone";
+    if (dist < DOOR_TRIGGER_RADIUS) {
+      enterLevel(currentChapterIndex);
     }
   }
 
-  // Update camera — pre-allocated vectors
+  // Update camera — constrain yaw for hallway
+  cameraYaw = THREE.MathUtils.clamp(cameraYaw, -Math.PI * 0.4, Math.PI * 0.4);
+
   const camX =
     Math.sin(cameraYaw) * Math.cos(cameraPitch) * CAM_DISTANCE;
-  const camY = CAM_HEIGHT + Math.sin(cameraPitch) * CAM_DISTANCE * 0.6;
+  const camY = CAM_HEIGHT + Math.sin(cameraPitch) * CAM_DISTANCE * 0.5;
   const camZ =
-    Math.cos(cameraYaw) * Math.cos(cameraPitch) * CAM_DISTANCE;
+    -Math.cos(cameraYaw) * Math.cos(cameraPitch) * CAM_DISTANCE;
 
   _camTarget.copy(player.position);
   _camTarget.x += camX;
   _camTarget.y += camY;
   _camTarget.z += camZ;
-  camera.position.lerp(_camTarget, 1 - Math.exp(-CAM_SMOOTHING * dt));
+  hubCamera.position.lerp(_camTarget, 1 - Math.exp(-CAM_SMOOTHING * dt));
 
   _lookTarget.copy(player.position);
   _lookTarget.y += CAM_LOOKAT_HEIGHT;
-  camera.lookAt(_lookTarget);
+  hubCamera.lookAt(_lookTarget);
 }
 
 // ========================================
@@ -677,13 +805,23 @@ function loop(now) {
   lastTime = now;
 
   update(dt);
-  renderer.render(scene, camera);
+  sceneManager.render();
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 
 window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+  const aspect = window.innerWidth / window.innerHeight;
+
+  hubCamera.aspect = aspect;
+  hubCamera.updateProjectionMatrix();
+
+  // Also update active level camera if in a level
+  const active = sceneManager.getActiveScene();
+  if (active && active.camera && active.camera !== hubCamera) {
+    active.camera.aspect = aspect;
+    active.camera.updateProjectionMatrix();
+  }
+
   renderer.setSize(window.innerWidth, window.innerHeight);
 });

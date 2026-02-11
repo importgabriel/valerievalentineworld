@@ -8,8 +8,7 @@ export const chapters = [
     id: 1,
     date: "July 26, 2025",
     title: "The Follow Request",
-    buildingType: "apartment",
-    buildingLabel: "NYC Apartment",
+    doorLabel: "NYC Apartment",
     storyText:
       "It was a regular day during my internship in New York City when my phone buzzed. valerie.rengifo had requested to follow me. I was genuinely shocked — I screenshotted the notification and sent it straight to my good friend Skylar. Something about it felt different.",
     choicePrompt: "valerie.rengifo just requested to follow you. What do you do?",
@@ -38,13 +37,58 @@ export const chapters = [
     ],
     quote: null,
     hubPosition: { x: -12, z: 8 },
+
+    // Level scene data
+    levelModule: "level01-follow-request",
+    sequence: [
+      {
+        type: "camera_move",
+        from: { x: 4, y: 3, z: -3 },
+        to: { x: 2, y: 1.8, z: -1.5 },
+        lookAt: { x: 0.3, y: 1.2, z: -0.3 },
+        duration: 2.5,
+        easing: "easeInOutCubic",
+      },
+      {
+        type: "wait",
+        duration: 0.8,
+      },
+      {
+        type: "text_bubble",
+        text: "valerie.rengifo has requested to follow you.",
+        position: "above_character",
+        offsetY: 0.5,
+        style: "notification",
+        enterAnimation: "rise",
+        duration: 3.0,
+      },
+      {
+        type: "wait",
+        duration: 1.0,
+      },
+      {
+        type: "reaction",
+        kind: "surprise",
+        duration: 1.5,
+      },
+      {
+        type: "camera_move",
+        from: { x: 2, y: 1.8, z: -1.5 },
+        to: { x: 1.5, y: 1.6, z: -1.0 },
+        lookAt: { x: 0.3, y: 1.5, z: -0.3 },
+        duration: 1.0,
+        easing: "easeOutCubic",
+      },
+      {
+        type: "show_choice",
+      },
+    ],
   },
   {
     id: 2,
     date: "July 30, 2025",
     title: "The Book Story",
-    buildingType: "apartment",
-    buildingLabel: "Instagram",
+    doorLabel: "Instagram",
     storyText:
       "Four days later, I posted a photo of a book on my Instagram story. She liked it. By then, I knew she was interested. But I was still in New York City, hundreds of miles away — there wasn't much I could do except wait.",
     choicePrompt: "She liked your book story on Instagram. What's your read on this?",
@@ -73,13 +117,14 @@ export const chapters = [
     ],
     quote: null,
     hubPosition: { x: -6, z: 18 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 3,
     date: "August 15, 2025",
     title: "Magnolias",
-    buildingType: "bar",
-    buildingLabel: "Magnolias",
+    doorLabel: "Magnolias",
     storyText:
       "My internship wrapped up and I headed home to Athens, Georgia. That night I went to Magnolias — a bar that AKPsi, her professional fraternity, is known to frequent. I went hoping I'd see her. And I did. We talked, both a little drunk, had a great conversation about HSA. It was short, but it was real.",
     choicePrompt:
@@ -109,13 +154,14 @@ export const chapters = [
     ],
     quote: null,
     hubPosition: { x: 0, z: 30 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 4,
     date: "August 16, 2025",
     title: "Close Friends",
-    buildingType: "restaurant",
-    buildingLabel: "Dinner Spot",
+    doorLabel: "Dinner Spot",
     storyText:
       "The next day, I posted a photo of my dinner on my close friends story. She liked it. These small interactions were starting to add up — each one a quiet signal that maybe this wasn't one-sided.",
     choicePrompt:
@@ -145,13 +191,14 @@ export const chapters = [
     ],
     quote: null,
     hubPosition: { x: 8, z: 42 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 5,
     date: "August 19, 2025",
     title: "The Reintroduction",
-    buildingType: "hall",
-    buildingLabel: "HSA Meeting Hall",
+    doorLabel: "HSA Meeting Hall",
     storyText:
       "The Hispanic Student Association held their first GBM of the year — around 200 people packed the room. I spotted her across the crowd. As the event wound down, I caught her eye and waved her over. I made a joke and reintroduced myself.",
     choicePrompt:
@@ -182,13 +229,14 @@ export const chapters = [
     quote:
       '"Haven\'t we already met?" she said with a smile. I apologized and we both laughed.',
     hubPosition: { x: -10, z: 55 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 6,
     date: "October 22, 2025",
     title: "Three Hours by the Fire",
-    buildingType: "house",
-    buildingLabel: "AKPsi House",
+    doorLabel: "AKPsi House",
     storyText:
       "We both got busy throughout the semester and never saw each other — until ALPHA and AKPsi hosted their Fall Festival. I found her by the campfire and did the same bit — reintroduced myself with the joke. What was supposed to be a quick hello turned into three hours of talking. The fire crackled and the world shrank to just us. She had to leave for church.",
     choicePrompt:
@@ -218,13 +266,14 @@ export const chapters = [
     ],
     quote: null,
     hubPosition: { x: 4, z: 68 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 7,
     date: "October 31, 2025",
     title: "Get Your Head in the Game",
-    buildingType: "decorated_street",
-    buildingLabel: "Halloween",
+    doorLabel: "Halloween",
     storyText:
       "Halloween. I saw her story — she was dressed as Troy Bolton from High School Musical. I couldn't resist. I swiped up quoting the iconic song.",
     choicePrompt:
@@ -255,13 +304,14 @@ export const chapters = [
     quote:
       '"Get your head in the game" I said.\n"Exactlyy you get it" she replied.',
     hubPosition: { x: -8, z: 80 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 8,
     date: "November 15, 2025",
     title: "I Only Asked You",
-    buildingType: "stadium",
-    buildingLabel: "UGA Stadium",
+    doorLabel: "UGA Stadium",
     storyText:
       'I heard AKPsi was having a tailgate for the UGA vs Texas game. I slid into her DMs: "Does AKPsi have a tailgate this weekend?" She said yeah and asked if I planned on going. I said maybe — I was trying to see if you were going.',
     choicePrompt:
@@ -292,13 +342,14 @@ export const chapters = [
     quote:
       '"Is Skylar not going?" she asked.\n"I only asked you," I said.',
     hubPosition: { x: 6, z: 92 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 9,
     date: "November 17, 2025",
     title: "Peak Feid",
-    buildingType: "music_venue",
-    buildingLabel: "Music Corner",
+    doorLabel: "Music Corner",
     storyText:
       "Two days later, I posted a story with a song by one of her favorite Colombian artists — Feid. The song was Chorritos Pa Las Animas. She swiped up immediately.",
     choicePrompt:
@@ -329,13 +380,14 @@ export const chapters = [
     quote:
       '"Peak Feid" she said.\n"You know ball," I replied. "I forgot you was Colombian."',
     hubPosition: { x: -5, z: 105 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 10,
     date: "December 5, 2025",
     title: "A Smile Across the Room",
-    buildingType: "party_house",
-    buildingLabel: "Christmas Party",
+    doorLabel: "Christmas Party",
     storyText:
       "Time passed. School forced us both to lock in. Then the LUL fraternity threw a Christmas party. I was supposed to be in Virginia visiting my little sister, but I'd fallen ill and was stuck in Athens. My roommate forced me out. We showed up two hours late. They asked me to DJ and things were smooth — until I saw a smile cutting through the dark room. A dark blue top. Beautiful brown hair. It was her. Valerie. I stopped everything.",
     choicePrompt:
@@ -366,13 +418,14 @@ export const chapters = [
     quote:
       'I tapped her shoulder. She turned around and did MY joke — reintroduced herself. "Have we met before?" We both laughed. I asked for her number.',
     hubPosition: { x: 10, z: 118 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 11,
     date: "December 5, 2025",
     title: "Cookout at 4 AM",
-    buildingType: "cookout",
-    buildingLabel: "Tropical Bar / Cookout",
+    doorLabel: "Tropical Bar / Cookout",
     storyText:
       "That same night, I ran into her again at the Tropical bar. No joke — I picked her out through the entire crowd because of that smile. She said she was leaving, so I walked out with her and asked if she was hungry. We got in my car and went to Cookout. I told her I'd never been — I lied. She ordered for both of us.",
     choicePrompt:
@@ -403,13 +456,14 @@ export const chapters = [
     quote:
       "Four chicken quesadillas. We talked until 4 AM. I dropped her off and couldn't stop smiling the whole way home.",
     hubPosition: { x: -3, z: 130 },
+    levelModule: null,
+    sequence: null,
   },
   {
     id: 12,
     date: "December 7, 2025",
     title: "12 Hours of Forever",
-    buildingType: "coffee_shop",
-    buildingLabel: "1000 Faces Coffee",
+    doorLabel: "1000 Faces Coffee",
     storyText:
       "That Sunday, we met at 1000 Faces Coffee Shop for our first date. What was supposed to be coffee turned into 12 hours together. Twelve. Hours. We talked about everything and nothing. I didn't even notice time passing — it just flew. That's when I knew. With her, time doesn't exist. It just... disappears.",
     choicePrompt:
@@ -439,5 +493,7 @@ export const chapters = [
     ],
     quote: null,
     hubPosition: { x: 0, z: 145 },
+    levelModule: null,
+    sequence: null,
   },
 ];
