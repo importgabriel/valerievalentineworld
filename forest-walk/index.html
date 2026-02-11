@@ -88,6 +88,53 @@
     <!-- Level UI (text bubbles, reactions — positioned over 3D scene) -->
     <div id="level-ui"></div>
 
+    <!-- Interaction Prompt -->
+    <div id="interaction-prompt" class="hidden">
+      <span class="prompt-key">A</span>
+      <span class="prompt-text" id="prompt-text">Interact</span>
+    </div>
+
+    <!-- Computer Screen Overlay -->
+    <div id="computer-screen-overlay" class="hidden">
+      <div class="code-editor">
+        <div class="editor-top-bar">
+          <div class="editor-dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <div class="editor-tabs">
+            <span class="tab active">main.py</span>
+            <span class="tab">utils.py</span>
+            <span class="tab">config.json</span>
+          </div>
+        </div>
+        <div class="editor-content">
+          <div class="line-numbers" id="line-numbers"></div>
+          <pre class="code-text" id="code-text"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phone Overlay -->
+    <div id="phone-overlay" class="hidden">
+      <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-time">9:41</div>
+        <div class="phone-notification">
+          <div class="notification-icon">
+            <div class="instagram-gradient"></div>
+          </div>
+          <div class="notification-body">
+            <div class="notification-app">Instagram</div>
+            <div class="notification-title">New Follower</div>
+            <div class="notification-text">valerie.rengifo started following you</div>
+            <div class="notification-time">now</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Scene Transition Overlay -->
     <div id="transition-overlay" class="hidden"></div>
 

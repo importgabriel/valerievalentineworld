@@ -66,3 +66,70 @@ export function worldToScreen(position, camera) {
     y: (-vec.y * 0.5 + 0.5) * window.innerHeight,
   };
 }
+
+// ========================================
+// POSTPROCESSING SETUP
+// ========================================
+
+import {
+  EffectComposer,
+  EffectPass,
+  RenderPass,
+  BloomEffect,
+  ToneMappingEffect,
+  VignetteEffect,
+  SMAAEffect,
+  SMAAPreset,
+} from "postprocessing";
+
+/**
+ * Create a postprocessing pipeline for a level scene.
+ * Returns { composer, bloom, vignette, updateScene(scene, camera) }
+ */
+export function createPostprocessing(renderer, scene, camera) {
+  const composer = new EffectComposer(renderer);
+
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+
+  const bloom = new BloomEffect({
+    intensity: 0.4,
+    luminanceThreshold: 0.75,
+    luminanceSmoothing: 0.15,
+    mipmapBlur: true,
+  });
+
+  const vignette = new VignetteEffect({
+    offset: 0.3,
+    darkness: 0.5,
+  });
+
+  const toneMapping = new ToneMappingEffect({
+    mode: THREE.ACESFilmicToneMapping,
+  });
+
+  const smaa = new SMAAEffect({ preset: SMAAPreset.MEDIUM });
+
+  composer.addPass(new EffectPass(camera, bloom, vignette, smaa));
+
+  return {
+    composer,
+    bloom,
+    vignette,
+
+    /** Swap scene and camera (used when transitioning sub-scenes) */
+    updateScene(newScene, newCamera) {
+      renderPass.mainScene = newScene;
+      renderPass.mainCamera = newCamera;
+    },
+
+    /** Resize handler */
+    setSize(width, height) {
+      composer.setSize(width, height);
+    },
+
+    dispose() {
+      composer.dispose();
+    },
+  };
+}

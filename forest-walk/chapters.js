@@ -41,47 +41,96 @@ export const chapters = [
     // Level scene data
     levelModule: "level01-follow-request",
     sequence: [
+      // === PHASE 1: SUBWAY CINEMATIC ===
+      { type: "fade", direction: "in", duration: 0.5 },
+      { type: "scene_swap", targetPhase: "SUBWAY" },
+      { type: "fade", direction: "out", duration: 1.0 },
       {
         type: "camera_move",
-        from: { x: 4, y: 3, z: -3 },
-        to: { x: 2, y: 1.8, z: -1.5 },
-        lookAt: { x: 0.3, y: 1.2, z: -0.3 },
-        duration: 2.5,
+        from: { x: 0, y: 1.6, z: -8 },
+        to: { x: 0, y: 1.6, z: 8 },
+        lookAt: { x: 0, y: 1.5, z: 12 },
+        duration: 5.0,
         easing: "easeInOutCubic",
       },
-      {
-        type: "wait",
-        duration: 0.8,
-      },
+      { type: "wait", duration: 0.5 },
+      { type: "fade", direction: "in", duration: 1.0 },
+
+      // === PHASE 2: CITY FREE-ROAM ===
+      { type: "scene_swap", targetPhase: "CITY" },
+      { type: "fade", direction: "out", duration: 1.0 },
       {
         type: "text_bubble",
-        text: "valerie.rengifo has requested to follow you.",
-        position: "above_character",
+        text: "NYC. Summer internship. Just another day.",
+        style: "speech",
+        duration: 3.0,
+        offsetY: 0.8,
+      },
+      { type: "wait", duration: 0.5 },
+      {
+        type: "free_roam",
+        triggerType: "reach_position",
+        targetPosition: { x: 0, y: 0, z: 62 },
+        radius: 4.0,
+      },
+
+      // === PHASE 3: ENTER BUILDING ===
+      { type: "fade", direction: "in", duration: 0.8 },
+      { type: "scene_swap", targetPhase: "OFFICE" },
+      { type: "custom_callback", callbackName: "playDoorAnimation", duration: 0.5 },
+      { type: "fade", direction: "out", duration: 0.8 },
+
+      // === PHASE 4: OFFICE FREE-ROAM ===
+      {
+        type: "text_bubble",
+        text: "Time to get to work.",
+        style: "speech",
+        duration: 2.5,
+        offsetY: 0.8,
+      },
+      { type: "wait", duration: 0.5 },
+      {
+        type: "interaction",
+        targetId: "chair",
+        promptText: "Sit down",
+      },
+      { type: "custom_callback", callbackName: "sitDown", duration: 1.0 },
+      { type: "wait", duration: 0.5 },
+      { type: "overlay", overlayId: "computer-screen", action: "show" },
+      {
+        type: "text_bubble",
+        text: "Let's get this code review done...",
+        style: "speech",
+        duration: 2.5,
         offsetY: 0.5,
+      },
+      { type: "wait", duration: 3.5 },
+
+      // === PHASE 5: PHONE NOTIFICATION ===
+      { type: "custom_callback", callbackName: "phoneBuzz", duration: 0.5 },
+      { type: "overlay", overlayId: "computer-screen", action: "hide" },
+      { type: "wait", duration: 0.8 },
+      { type: "overlay", overlayId: "phone-screen", action: "show" },
+      { type: "wait", duration: 2.5 },
+      {
+        type: "text_bubble",
+        text: "valerie.rengifo started following you.",
         style: "notification",
         enterAnimation: "rise",
         duration: 3.0,
+        offsetY: 0.5,
       },
-      {
-        type: "wait",
-        duration: 1.0,
-      },
+      { type: "wait", duration: 1.0 },
+      { type: "overlay", overlayId: "phone-screen", action: "hide" },
       {
         type: "reaction",
         kind: "surprise",
         duration: 1.5,
       },
-      {
-        type: "camera_move",
-        from: { x: 2, y: 1.8, z: -1.5 },
-        to: { x: 1.5, y: 1.6, z: -1.0 },
-        lookAt: { x: 0.3, y: 1.5, z: -0.3 },
-        duration: 1.0,
-        easing: "easeOutCubic",
-      },
-      {
-        type: "show_choice",
-      },
+      { type: "custom_callback", callbackName: "cameraToChoice", duration: 1.0 },
+
+      // === PHASE 6: CHOICE ===
+      { type: "show_choice" },
     ],
   },
   {
