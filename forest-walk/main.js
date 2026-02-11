@@ -60,7 +60,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
+renderer.toneMappingExposure = 1.1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 // ========================================
@@ -146,7 +148,7 @@ window.addEventListener("keyup", (e) => {
 const mouse = { dragging: false, lastX: 0, lastY: 0 };
 
 window.addEventListener("mousedown", (e) => {
-  if (e.button === 0 && gameState === "hub") {
+  if (e.button === 0 && (gameState === "hub" || gameState === "level_freeroam")) {
     mouse.dragging = true;
     mouse.lastX = e.clientX;
     mouse.lastY = e.clientY;
@@ -158,18 +160,23 @@ window.addEventListener("mouseup", () => {
 });
 
 window.addEventListener("mousemove", (e) => {
-  if (mouse.dragging && gameState === "hub") {
+  if (mouse.dragging && (gameState === "hub" || gameState === "level_freeroam")) {
     const dx = e.clientX - mouse.lastX;
     const dy = e.clientY - mouse.lastY;
     mouse.lastX = e.clientX;
     mouse.lastY = e.clientY;
 
-    cameraYaw -= dx * 0.004;
-    cameraPitch = THREE.MathUtils.clamp(
-      cameraPitch - dy * 0.004,
-      0.1,
-      1.0
-    );
+    if (gameState === "level_freeroam") {
+      const active = sceneManager.getActiveScene();
+      if (active && active.handleMouseLook) active.handleMouseLook(dx, dy);
+    } else {
+      cameraYaw -= dx * 0.004;
+      cameraPitch = THREE.MathUtils.clamp(
+        cameraPitch - dy * 0.004,
+        0.1,
+        1.0
+      );
+    }
   }
 });
 
@@ -534,6 +541,9 @@ async function enterLevel(chapterIndex) {
       scene: levelScene.scene,
       camera: levelScene.camera,
       player: levelScene.playerAnchor || characterModel,
+      level: levelScene,
+      setGameState: (newState) => { gameState = newState; },
+      getInput: () => ({ keys, gamepad: getGamepadInput() }),
       onShowChoice: () => {
         showChoicePanel(chapterIndex);
       },
@@ -565,7 +575,10 @@ continueBtn.addEventListener("click", continueAfterCorrectChoice);
 
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space" || e.code === "Enter") {
-    if (gameState === "in_zone") {
+    if (gameState === "level_freeroam") {
+      const active = sceneManager.getActiveScene();
+      if (active && active.tryInteract) active.tryInteract();
+    } else if (gameState === "in_zone") {
       hideStoryPanel();
       showChoicePanel(currentChapterIndex);
     } else if (gameState === "choice") {
@@ -594,7 +607,10 @@ window.addEventListener("keydown", (e) => {
 
 function handleGamepadButtons() {
   if (buttonJustPressed(0)) {
-    if (gameState === "welcome") {
+    if (gameState === "level_freeroam") {
+      const active = sceneManager.getActiveScene();
+      if (active && active.tryInteract) active.tryInteract();
+    } else if (gameState === "welcome") {
       startGame();
     } else if (gameState === "in_zone") {
       hideStoryPanel();
@@ -664,6 +680,24 @@ function update(dt) {
 
   // Level sequence — update the sequence runner
   if (gameState === "level_sequence") {
+    sequenceRunner.update(dt);
+    sceneManager.update(dt);
+    return;
+  }
+
+  // Level free-roam — player controls the character in the level
+  if (gameState === "level_freeroam") {
+    const active = sceneManager.getActiveScene();
+    if (active && active.handleInput) {
+      const gp = getGamepadInput();
+      let inputX = gp.moveX;
+      let inputZ = gp.moveY;
+      if (keys.KeyW || keys.ArrowUp) inputZ -= 1;
+      if (keys.KeyS || keys.ArrowDown) inputZ += 1;
+      if (keys.KeyA || keys.ArrowLeft) inputX -= 1;
+      if (keys.KeyD || keys.ArrowRight) inputX += 1;
+      active.handleInput({ inputX, inputZ, lookX: gp.lookX, lookY: gp.lookY }, dt);
+    }
     sequenceRunner.update(dt);
     sceneManager.update(dt);
     return;

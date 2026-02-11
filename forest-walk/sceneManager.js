@@ -37,7 +37,8 @@ export class SceneManager {
     }
 
     const levelMod = this.loadedLevels[chapter.levelModule];
-    const levelSceneObj = levelMod.create(chapter);
+    // Support both sync and async create; pass renderer for postprocessing
+    const levelSceneObj = await levelMod.create(chapter, this.renderer);
     this.activeScene = levelSceneObj;
     return levelSceneObj;
   }
@@ -57,7 +58,12 @@ export class SceneManager {
 
   render() {
     if (this.activeScene) {
-      this.renderer.render(this.activeScene.scene, this.activeScene.camera);
+      // Allow level to provide custom render (e.g. for postprocessing EffectComposer)
+      if (this.activeScene.render) {
+        this.activeScene.render();
+      } else {
+        this.renderer.render(this.activeScene.scene, this.activeScene.camera);
+      }
     }
   }
 }

@@ -643,6 +643,301 @@ canvas { display: block; }
 }
 
 /* ============================================
+   INTERACTION PROMPT
+   ============================================ */
+#interaction-prompt {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 85;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(250, 245, 239, 0.92);
+  padding: 10px 24px;
+  border-radius: 50px;
+  border: 2px solid var(--ac-brown);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: promptSlideUp 0.3s ease-out;
+  pointer-events: none;
+}
+
+@keyframes promptSlideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.prompt-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--hotel-crimson);
+  color: var(--hotel-cream);
+  border-radius: 50%;
+  font-family: 'Fredoka One', cursive;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 0 #4a0e0e;
+}
+
+.prompt-text {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ac-brown-dark);
+  letter-spacing: 0.03em;
+}
+
+/* ============================================
+   COMPUTER SCREEN OVERLAY
+   ============================================ */
+#computer-screen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: csOverlayIn 0.5s ease-out;
+}
+
+@keyframes csOverlayIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.code-editor {
+  width: min(80vw, 700px);
+  height: min(60vh, 450px);
+  background: #1e1e2e;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-top-bar {
+  background: #181825;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #313244;
+}
+
+.editor-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.editor-dots .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.dot.red { background: #f38ba8; }
+.dot.yellow { background: #f9e2af; }
+.dot.green { background: #a6e3a1; }
+
+.editor-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.editor-tabs .tab {
+  padding: 4px 14px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.75rem;
+  color: #6c7086;
+  background: transparent;
+  border-radius: 6px 6px 0 0;
+  cursor: default;
+}
+
+.editor-tabs .tab.active {
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.editor-content {
+  flex: 1;
+  display: flex;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.line-numbers {
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #585b70;
+  text-align: right;
+  user-select: none;
+  min-width: 40px;
+}
+
+.code-text {
+  flex: 1;
+  margin: 0;
+  padding: 0 16px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #cdd6f4;
+  white-space: pre;
+  overflow-x: hidden;
+}
+
+/* Syntax highlighting */
+.hl-keyword { color: #cba6f7; }
+.hl-string { color: #a6e3a1; }
+.hl-comment { color: #585b70; font-style: italic; }
+.hl-builtin { color: #89b4fa; }
+.hl-number { color: #fab387; }
+
+/* ============================================
+   PHONE OVERLAY
+   ============================================ */
+#phone-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 83;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+#phone-overlay.phone-slide-in {
+  animation: phoneSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+#phone-overlay.phone-slide-out {
+  animation: phoneSlideOut 0.4s ease-in forwards;
+}
+
+@keyframes phoneSlideIn {
+  from { opacity: 0; transform: translateY(60px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes phoneSlideOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(60px) scale(0.9); }
+}
+
+.phone-frame {
+  width: min(85vw, 320px);
+  height: min(70vh, 580px);
+  background: #111111;
+  border-radius: 36px;
+  border: 3px solid #333333;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.phone-notch {
+  width: 120px;
+  height: 24px;
+  background: #111111;
+  border-radius: 0 0 16px 16px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.phone-time {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #ffffff;
+  text-align: center;
+  margin-top: 30px;
+  margin-bottom: 40px;
+}
+
+.phone-notification {
+  display: flex;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 14px 16px;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  animation: notifSlide 0.4s ease-out 0.3s both;
+}
+
+@keyframes notifSlide {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.instagram-gradient {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);
+  border-radius: 10px;
+}
+
+.notification-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-app {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.notification-title {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #ffffff;
+  margin-bottom: 2px;
+}
+
+.notification-text {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 4px;
+}
+
+.notification-time {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 400;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ============================================
    LEVEL UI — Text bubbles & reactions
    ============================================ */
 #level-ui {

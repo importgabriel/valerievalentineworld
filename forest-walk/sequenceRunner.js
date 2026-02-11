@@ -231,6 +231,234 @@ class ShowChoiceBeat {
   }
 }
 
+// ========================================
+// FADE BEAT — Fade transition overlay in/out
+// ========================================
+
+class FadeBeat {
+  constructor(data) {
+    this.direction = data.direction || "in"; // "in" = to black, "out" = from black
+    this.duration = data.duration || 1.0;
+    this.color = data.color || null;
+    this.elapsed = 0;
+    this.overlay = null;
+  }
+
+  start() {
+    this.elapsed = 0;
+    this.overlay = document.getElementById("transition-overlay");
+    if (!this.overlay) return;
+
+    this.overlay.classList.remove("hidden", "fade-in", "fade-out");
+    this.overlay.style.transition = `opacity ${this.duration}s ease`;
+
+    if (this.color) {
+      this.overlay.style.background = this.color;
+    }
+
+    if (this.direction === "in") {
+      this.overlay.style.opacity = "0";
+      this.overlay.classList.remove("hidden");
+      // Force reflow then animate
+      void this.overlay.offsetHeight;
+      this.overlay.style.opacity = "1";
+    } else {
+      this.overlay.style.opacity = "1";
+      this.overlay.classList.remove("hidden");
+      void this.overlay.offsetHeight;
+      this.overlay.style.opacity = "0";
+    }
+  }
+
+  update(dt) {
+    this.elapsed += dt;
+    return this.elapsed >= this.duration;
+  }
+
+  finish() {
+    if (!this.overlay) return;
+    this.overlay.style.transition = "";
+    if (this.direction === "out") {
+      this.overlay.classList.add("hidden");
+      this.overlay.style.opacity = "";
+    }
+  }
+}
+
+// ========================================
+// FREE ROAM BEAT — Yield control to player
+// ========================================
+
+class FreeRoamBeat {
+  constructor(data) {
+    this.triggerType = data.triggerType || "reach_position"; // "reach_position" | "interact"
+    this.targetId = data.targetId || null;
+    this.targetPosition = data.targetPosition
+      ? new THREE.Vector3(data.targetPosition.x, data.targetPosition.y || 0, data.targetPosition.z)
+      : null;
+    this.radius = data.radius || 3.0;
+    this.triggered = false;
+  }
+
+  start(ctx) {
+    this.triggered = false;
+    // Tell main.js to switch to free-roam mode
+    if (ctx.setGameState) ctx.setGameState("level_freeroam");
+    // Enable player controller if level has one
+    if (ctx.level && ctx.level.enableFreeRoam) ctx.level.enableFreeRoam();
+  }
+
+  update(dt, ctx) {
+    if (this.triggered) return true;
+
+    if (this.triggerType === "reach_position" && this.targetPosition && ctx.level) {
+      const playerPos = ctx.level.getPlayerPosition ? ctx.level.getPlayerPosition() : null;
+      if (playerPos) {
+        const dist = playerPos.distanceTo(this.targetPosition);
+        if (dist < this.radius) {
+          this.triggered = true;
+          return true;
+        }
+      }
+    }
+
+    // "interact" type is triggered externally via signal
+    return false;
+  }
+
+  finish(ctx) {
+    // Switch back to sequence mode
+    if (ctx.setGameState) ctx.setGameState("level_sequence");
+    if (ctx.level && ctx.level.disableFreeRoam) ctx.level.disableFreeRoam();
+  }
+
+  onSignal(eventName, payload) {
+    if (eventName === "interaction" && this.triggerType === "interact") {
+      if (!this.targetId || (payload && payload.id === this.targetId)) {
+        this.triggered = true;
+      }
+    }
+  }
+}
+
+// ========================================
+// SCENE SWAP BEAT — Switch level sub-scene
+// ========================================
+
+class SceneSwapBeat {
+  constructor(data) {
+    this.targetPhase = data.targetPhase;
+  }
+
+  start(ctx) {
+    if (ctx.level && ctx.level.setPhase) {
+      ctx.level.setPhase(this.targetPhase);
+      // Update context references after phase swap
+      if (ctx.level.scene) ctx.scene = ctx.level.scene;
+      if (ctx.level.camera) ctx.camera = ctx.level.camera;
+    }
+  }
+
+  update() {
+    return true; // Instant beat
+  }
+
+  finish() {}
+}
+
+// ========================================
+// INTERACTION BEAT — Wait for A-press near object
+// ========================================
+
+class InteractionBeat {
+  constructor(data) {
+    this.targetId = data.targetId || null;
+    this.promptText = data.promptText || "Press A";
+    this.waiting = true;
+  }
+
+  start(ctx) {
+    this.waiting = true;
+    // Enable the interaction trigger if level has one
+    if (ctx.level && ctx.level.enableInteraction) {
+      ctx.level.enableInteraction(this.targetId, this.promptText, () => {
+        this.waiting = false;
+      });
+    }
+    // Also enable free-roam so player can move to the object
+    if (ctx.setGameState) ctx.setGameState("level_freeroam");
+    if (ctx.level && ctx.level.enableFreeRoam) ctx.level.enableFreeRoam();
+  }
+
+  update() {
+    return !this.waiting;
+  }
+
+  finish(ctx) {
+    if (ctx.setGameState) ctx.setGameState("level_sequence");
+    if (ctx.level && ctx.level.disableFreeRoam) ctx.level.disableFreeRoam();
+    if (ctx.level && ctx.level.disableInteraction) ctx.level.disableInteraction();
+  }
+
+  onSignal(eventName, payload) {
+    if (eventName === "interaction") {
+      if (!this.targetId || (payload && payload.id === this.targetId)) {
+        this.waiting = false;
+      }
+    }
+  }
+}
+
+// ========================================
+// OVERLAY BEAT — Show/hide HTML overlay
+// ========================================
+
+class OverlayBeat {
+  constructor(data) {
+    this.overlayId = data.overlayId;
+    this.action = data.action || "show"; // "show" | "hide"
+    this.animation = data.animation || null;
+  }
+
+  start(ctx) {
+    if (ctx.level && ctx.level.controlOverlay) {
+      ctx.level.controlOverlay(this.overlayId, this.action);
+    }
+  }
+
+  update() {
+    return true; // Instant beat
+  }
+
+  finish() {}
+}
+
+// ========================================
+// CUSTOM CALLBACK BEAT — Fire named callback
+// ========================================
+
+class CustomCallbackBeat {
+  constructor(data) {
+    this.callbackName = data.callbackName;
+    this.duration = data.duration || 0;
+    this.elapsed = 0;
+  }
+
+  start(ctx) {
+    this.elapsed = 0;
+    if (ctx.level && ctx.level.callbacks && ctx.level.callbacks[this.callbackName]) {
+      ctx.level.callbacks[this.callbackName](ctx);
+    }
+  }
+
+  update(dt) {
+    this.elapsed += dt;
+    return this.elapsed >= this.duration;
+  }
+
+  finish() {}
+}
+
 class ShowStoryBeat {
   constructor() {
     this.waiting = true;
@@ -380,6 +608,12 @@ export class SequenceRunner {
       case "reaction": return new ReactionBeat(data);
       case "show_choice": return new ShowChoiceBeat(data);
       case "show_story": return new ShowStoryBeat(data);
+      case "fade": return new FadeBeat(data);
+      case "free_roam": return new FreeRoamBeat(data);
+      case "scene_swap": return new SceneSwapBeat(data);
+      case "interaction": return new InteractionBeat(data);
+      case "overlay": return new OverlayBeat(data);
+      case "custom_callback": return new CustomCallbackBeat(data);
       default:
         console.warn("Unknown beat type:", data.type);
         return new WaitBeat({ duration: 0 });
