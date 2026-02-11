@@ -689,10 +689,10 @@ function update(dt) {
   let inputX = gp.moveX;
   let inputZ = gp.moveY;
 
-  if (keys.KeyW || keys.ArrowUp) inputZ -= 1;
-  if (keys.KeyS || keys.ArrowDown) inputZ += 1;
-  if (keys.KeyA || keys.ArrowLeft) inputX -= 1;
-  if (keys.KeyD || keys.ArrowRight) inputX += 1;
+  if (keys.KeyW || keys.ArrowUp) inputZ += 1;
+  if (keys.KeyS || keys.ArrowDown) inputZ -= 1;
+  if (keys.KeyA || keys.ArrowLeft) inputX += 1;
+  if (keys.KeyD || keys.ArrowRight) inputX -= 1;
 
   inputX = THREE.MathUtils.clamp(inputX, -1, 1);
   inputZ = THREE.MathUtils.clamp(inputZ, -1, 1);
