@@ -1,48 +1,166 @@
 // ========================================
-// SUBWAY SCENE — Cinematic NYC subway car interior
+// SUBWAY SCENE — Cinematic platform POV
 // ========================================
+// Camera is on the platform watching the subway train
+// arrive, brake, and stop. Valerie steps off.
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { MATS, PALETTE } from "./constants.js";
-import { createNPCSilhouette } from "./NPCSystem.js";
 
-export function buildSubwayScene() {
+// ========================================
+// TRAIN STATE MACHINE
+// ========================================
+
+const TRAIN_STATES = {
+  WAITING: "WAITING",
+  APPROACHING: "APPROACHING",
+  BRAKING: "BRAKING",
+  STOPPED: "STOPPED",
+  DOORS_OPEN: "DOORS_OPEN",
+  CHARACTER_EXIT: "CHARACTER_EXIT",
+  DONE: "DONE",
+};
+
+const TRAIN_STOP_Z = 0;
+
+// ========================================
+// BUILD SUBWAY SCENE
+// ========================================
+
+export function buildSubwayScene(subwayGltf) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a22);
-  scene.fog = new THREE.FogExp2(0x1a1a22, 0.04);
+  scene.background = new THREE.Color(PALETTE.tunnelDark);
+  scene.fog = new THREE.FogExp2(PALETTE.tunnelDark, 0.025);
 
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 1.6, -8);
-  camera.lookAt(0, 1.5, 10);
+  const camera = new THREE.PerspectiveCamera(
+    50,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    200
+  );
+  // Standing on platform, looking down the tracks into the tunnel
+  camera.position.set(3, 1.6, 8);
+  camera.lookAt(-3, 0.5, -30);
 
-  buildCarInterior(scene);
-  addSeats(scene);
-  addHandrails(scene);
-  addWindows(scene);
-  addDoors(scene);
-  addNPCs(scene);
-  addLighting(scene);
+  // Build scene elements
+  buildPlatform(scene);
+  buildTracks(scene);
+  buildTunnelWalls(scene);
 
-  // Sway timer for train motion simulation
-  let swayTime = 0;
+  // Set up the train from GLB
+  const trainGroup = setupTrain(scene, subwayGltf);
+
+  // Lighting
+  addLighting(scene, trainGroup);
+
+  // Train state
+  let trainState = TRAIN_STATES.WAITING;
+  let stateTimer = 0;
+  let trainSpeed = 0;
   const baseCamY = 1.6;
 
   return {
     scene,
     camera,
-    update(dt) {
-      swayTime += dt;
-      // Gentle sway to simulate train motion
-      camera.position.y = baseCamY + Math.sin(swayTime * 1.5) * 0.015;
-      camera.position.x = Math.sin(swayTime * 0.8) * 0.01;
-      camera.rotation.z = Math.sin(swayTime * 1.2) * 0.003;
+    trainGroup,
+
+    startTrainArrival() {
+      if (trainState === TRAIN_STATES.WAITING) {
+        trainState = TRAIN_STATES.APPROACHING;
+        stateTimer = 0;
+        trainSpeed = 0;
+      }
     },
+
+    getTrainState() {
+      return trainState;
+    },
+
+    update(dt) {
+      stateTimer += dt;
+
+      switch (trainState) {
+        case TRAIN_STATES.WAITING:
+          // Idle — subtle ambient flicker on platform lights
+          break;
+
+        case TRAIN_STATES.APPROACHING:
+          // Train accelerates and rumbles in
+          trainSpeed = Math.min(trainSpeed + 8 * dt, 18);
+          trainGroup.position.z += trainSpeed * dt;
+
+          // Camera shake from approaching train vibration
+          camera.position.y =
+            baseCamY +
+            Math.sin(stateTimer * 14) *
+              0.008 *
+              Math.min(1, trainSpeed / 8);
+          camera.rotation.z = Math.sin(stateTimer * 10) * 0.002;
+
+          if (trainGroup.position.z > -12) {
+            trainState = TRAIN_STATES.BRAKING;
+            stateTimer = 0;
+          }
+          break;
+
+        case TRAIN_STATES.BRAKING: {
+          // Deceleration with easeOutCubic
+          const brakeT = Math.min(stateTimer / 2.0, 1);
+          const easedBrake = 1 - Math.pow(1 - brakeT, 3);
+          trainSpeed = 18 * (1 - easedBrake);
+          trainGroup.position.z += trainSpeed * dt;
+
+          // Decreasing camera shake
+          camera.position.y =
+            baseCamY +
+            Math.sin(stateTimer * 8) * 0.004 * (1 - brakeT);
+          camera.rotation.z =
+            Math.sin(stateTimer * 6) * 0.001 * (1 - brakeT);
+
+          if (brakeT >= 1) {
+            trainGroup.position.z = TRAIN_STOP_Z;
+            trainSpeed = 0;
+            trainState = TRAIN_STATES.STOPPED;
+            stateTimer = 0;
+            camera.position.y = baseCamY;
+            camera.rotation.z = 0;
+          }
+          break;
+        }
+
+        case TRAIN_STATES.STOPPED:
+          if (stateTimer > 0.5) {
+            trainState = TRAIN_STATES.DOORS_OPEN;
+            stateTimer = 0;
+          }
+          break;
+
+        case TRAIN_STATES.DOORS_OPEN:
+          // Hold for doors
+          if (stateTimer > 1.0) {
+            trainState = TRAIN_STATES.CHARACTER_EXIT;
+            stateTimer = 0;
+          }
+          break;
+
+        case TRAIN_STATES.CHARACTER_EXIT:
+          if (stateTimer > 2.0) {
+            trainState = TRAIN_STATES.DONE;
+          }
+          break;
+
+        case TRAIN_STATES.DONE:
+          break;
+      }
+    },
+
     dispose() {
       scene.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
-          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          if (Array.isArray(obj.material))
+            obj.material.forEach((m) => m.dispose());
           else obj.material.dispose();
         }
       });
@@ -50,265 +168,310 @@ export function buildSubwayScene() {
   };
 }
 
-function buildCarInterior(scene) {
-  const carLen = 20, carW = 3, carH = 2.6;
+// ========================================
+// PLATFORM CONSTRUCTION
+// ========================================
 
-  // Floor
+function buildPlatform(scene) {
+  const platLen = 40; // 40m long
+  const platW = 8; // 8m wide
+  const platH = 0.8; // elevated 0.8m above track level
+  const platX = 4; // centered at X=4 (tracks at X=-3)
+
+  // Platform top surface
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(carW, carLen),
-    MATS.subwayFloor
+    new THREE.PlaneGeometry(platW, platLen),
+    MATS.platformFloor
   );
   floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, 0, carLen / 2 - 5);
+  floor.position.set(platX, platH, 0);
   floor.receiveShadow = true;
   scene.add(floor);
 
+  // Platform edge (track side) — yellow safety line
+  const edgeLine = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, 0.02, platLen),
+    MATS.platformEdge
+  );
+  edgeLine.position.set(platX - platW / 2 + 0.15, platH + 0.01, 0);
+  scene.add(edgeLine);
+
+  // Platform side wall (facing tracks)
+  const sideWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(platLen, platH),
+    MATS.platformTile
+  );
+  sideWall.rotation.y = Math.PI / 2;
+  sideWall.position.set(platX - platW / 2, platH / 2, 0);
+  scene.add(sideWall);
+
+  // Back wall with tiles
+  const backWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(platLen, 3.5),
+    MATS.platformTile
+  );
+  backWall.rotation.y = -Math.PI / 2;
+  backWall.position.set(platX + platW / 2, platH + 1.75, 0);
+  scene.add(backWall);
+
   // Ceiling
   const ceiling = new THREE.Mesh(
-    new THREE.PlaneGeometry(carW, carLen),
-    MATS.subwayCeiling
+    new THREE.PlaneGeometry(platW + 4, platLen),
+    MATS.platformCeiling
   );
   ceiling.rotation.x = Math.PI / 2;
-  ceiling.position.set(0, carH, carLen / 2 - 5);
+  ceiling.position.set(platX - 2, 3.8, 0);
   scene.add(ceiling);
 
-  // Walls (between windows)
-  const wallGeos = [];
-  const halfW = carW / 2;
-
-  // Bottom wall strip (below windows)
-  for (const side of [-1, 1]) {
-    const wallBottom = new THREE.PlaneGeometry(carLen, 0.8);
-    wallBottom.rotateY(side === -1 ? Math.PI / 2 : -Math.PI / 2);
-    wallBottom.translate(side * halfW, 0.4, carLen / 2 - 5);
-    wallGeos.push(wallBottom);
-
-    // Top wall strip (above windows)
-    const wallTop = new THREE.PlaneGeometry(carLen, 0.6);
-    wallTop.rotateY(side === -1 ? Math.PI / 2 : -Math.PI / 2);
-    wallTop.translate(side * halfW, carH - 0.3, carLen / 2 - 5);
-    wallGeos.push(wallTop);
-  }
-
-  if (wallGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(wallGeos), MATS.subwayWall));
-    wallGeos.forEach(g => g.dispose());
-  }
-
-  // End walls
-  const endWall1 = new THREE.Mesh(new THREE.PlaneGeometry(carW, carH), MATS.subwayMetalDark);
-  endWall1.position.set(0, carH / 2, -5);
-  scene.add(endWall1);
-
-  const endWall2 = new THREE.Mesh(new THREE.PlaneGeometry(carW, carH), MATS.subwayMetalDark);
-  endWall2.rotation.y = Math.PI;
-  endWall2.position.set(0, carH / 2, carLen - 5);
-  scene.add(endWall2);
-
-  // Fluorescent light strips on ceiling
-  const lightGeos = [];
-  for (let z = -3; z < carLen - 5; z += 3) {
-    const lightPanel = new THREE.PlaneGeometry(0.3, 2.0);
-    lightPanel.rotateX(Math.PI / 2);
-    lightPanel.translate(0, carH - 0.01, z);
-    lightGeos.push(lightPanel);
-  }
-  if (lightGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(lightGeos), MATS.subwayFluorescent));
-    lightGeos.forEach(g => g.dispose());
-  }
-
-  // Floor edge trim (metal strip)
-  const trimGeos = [];
-  for (const side of [-1, 1]) {
-    const trim = new THREE.BoxGeometry(0.04, 0.03, carLen);
-    trim.translate(side * (halfW - 0.02), 0.015, carLen / 2 - 5);
-    trimGeos.push(trim);
-  }
-  if (trimGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(trimGeos), MATS.subwayMetal));
-    trimGeos.forEach(g => g.dispose());
-  }
-}
-
-function addSeats(scene) {
-  const carW = 3, halfW = carW / 2;
-  const seatGeos = [];
-  const cushionGeos = [];
-
-  // Row seats along each wall
-  for (const side of [-1, 1]) {
-    for (let z = -3; z < 13; z += 2.0) {
-      // Seat base
-      const seatBase = new THREE.BoxGeometry(0.55, 0.04, 0.45);
-      seatBase.translate(side * (halfW - 0.35), 0.45, z);
-      seatGeos.push(seatBase);
-
-      // Seat back
-      const seatBack = new THREE.BoxGeometry(0.04, 0.4, 0.45);
-      seatBack.translate(side * (halfW - 0.08), 0.67, z);
-      seatGeos.push(seatBack);
-
-      // Cushion
-      const cushion = new THREE.BoxGeometry(0.48, 0.06, 0.4);
-      cushion.translate(side * (halfW - 0.35), 0.49, z);
-      cushionGeos.push(cushion);
-    }
-  }
-
-  if (seatGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(seatGeos), MATS.subwayMetal));
-    seatGeos.forEach(g => g.dispose());
-  }
-  if (cushionGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(cushionGeos), MATS.subwaySeatCushion));
-    cushionGeos.forEach(g => g.dispose());
-  }
-}
-
-function addHandrails(scene) {
-  const carW = 3, carH = 2.6, halfW = carW / 2;
-  const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, carH, 6);
-  const poleMat = MATS.subwayMetal;
-
-  // Vertical poles
-  const polePositions = [];
-  for (const x of [-0.8, 0.8]) {
-    for (let z = -3; z < 14; z += 4) {
-      polePositions.push([x, z]);
-    }
-  }
-
-  const poleMesh = new THREE.InstancedMesh(poleGeo, poleMat, polePositions.length);
+  // Pillars (instanced)
+  const pillarGeo = new THREE.CylinderGeometry(0.15, 0.15, 3.0, 8);
+  const pillarCount = 10;
+  const pillarMesh = new THREE.InstancedMesh(
+    pillarGeo,
+    MATS.platformPillar,
+    pillarCount
+  );
   const m = new THREE.Matrix4();
-  polePositions.forEach(([x, z], i) => {
-    m.makeTranslation(x, carH / 2, z);
-    poleMesh.setMatrixAt(i, m);
-  });
-  scene.add(poleMesh);
+  for (let i = 0; i < pillarCount; i++) {
+    const z = -16 + i * (platLen / (pillarCount - 1));
+    m.makeTranslation(platX - platW / 2 + 0.5, platH + 1.5, z);
+    pillarMesh.setMatrixAt(i, m);
+  }
+  pillarMesh.castShadow = true;
+  scene.add(pillarMesh);
 
-  // Horizontal overhead rail
+  // Station sign — "34th St" style
+  const signCanvas = document.createElement("canvas");
+  signCanvas.width = 512;
+  signCanvas.height = 128;
+  const ctx = signCanvas.getContext("2d");
+  ctx.fillStyle = "#1a3a1a";
+  ctx.fillRect(0, 0, 512, 128);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(8, 8, 496, 112);
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 52px Georgia, serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("34th Street", 256, 48);
+  ctx.font = "28px Georgia, serif";
+  ctx.fillText("Penn Station", 256, 92);
+
+  const signTex = new THREE.CanvasTexture(signCanvas);
+  const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+  const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 1), signMat);
+  signMesh.rotation.y = -Math.PI / 2;
+  signMesh.position.set(platX + platW / 2 - 0.01, platH + 2.5, 0);
+  scene.add(signMesh);
+
+  // Benches along the back wall
+  const benchGeos = [];
+  for (let z = -8; z <= 8; z += 8) {
+    // Seat
+    const seat = new THREE.BoxGeometry(1.5, 0.06, 0.4);
+    seat.translate(platX + platW / 2 - 1.2, platH + 0.45, z);
+    benchGeos.push(seat);
+    // Legs
+    for (const oz of [-0.5, 0.5]) {
+      const leg = new THREE.BoxGeometry(0.06, 0.45, 0.06);
+      leg.translate(platX + platW / 2 - 1.2 + oz, platH + 0.225, z);
+      benchGeos.push(leg);
+    }
+    // Backrest
+    const back = new THREE.BoxGeometry(1.5, 0.5, 0.04);
+    back.translate(platX + platW / 2 - 0.95, platH + 0.73, z);
+    benchGeos.push(back);
+  }
+  if (benchGeos.length > 0) {
+    const benchMat = new THREE.MeshStandardMaterial({
+      color: 0x554433,
+      roughness: 0.7,
+    });
+    const benchMesh = new THREE.Mesh(mergeGeometries(benchGeos), benchMat);
+    benchMesh.castShadow = true;
+    scene.add(benchMesh);
+    benchGeos.forEach((g) => g.dispose());
+  }
+}
+
+// ========================================
+// TRACKS
+// ========================================
+
+function buildTracks(scene) {
+  const trackLen = 80;
+  const trackCenterX = -3;
+  const trackY = 0;
+  const gauge = 1.435 / 2; // Standard gauge half-width
+
+  // Track bed (gravel)
+  const bed = new THREE.Mesh(
+    new THREE.PlaneGeometry(3, trackLen),
+    MATS.trackBed
+  );
+  bed.rotation.x = -Math.PI / 2;
+  bed.position.set(trackCenterX, trackY - 0.01, 0);
+  bed.receiveShadow = true;
+  scene.add(bed);
+
+  // Rails
   const railGeos = [];
-  for (const x of [-0.8, 0.8]) {
-    const rail = new THREE.CylinderGeometry(0.015, 0.015, 18, 6);
-    rail.rotateX(Math.PI / 2);
-    rail.translate(x, carH - 0.3, 5);
+  for (const side of [-1, 1]) {
+    const rail = new THREE.BoxGeometry(0.07, 0.08, trackLen);
+    rail.translate(trackCenterX + side * gauge, trackY + 0.04, 0);
     railGeos.push(rail);
   }
   if (railGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(railGeos), poleMat));
-    railGeos.forEach(g => g.dispose());
+    scene.add(new THREE.Mesh(mergeGeometries(railGeos), MATS.trackRail));
+    railGeos.forEach((g) => g.dispose());
+  }
+
+  // Ties (instanced)
+  const tieGeo = new THREE.BoxGeometry(2.0, 0.06, 0.15);
+  const tieCount = Math.floor(trackLen / 0.6);
+  const tieMesh = new THREE.InstancedMesh(tieGeo, MATS.trackTie, tieCount);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < tieCount; i++) {
+    m.makeTranslation(trackCenterX, trackY - 0.01, -trackLen / 2 + i * 0.6);
+    tieMesh.setMatrixAt(i, m);
+  }
+  scene.add(tieMesh);
+}
+
+// ========================================
+// TUNNEL WALLS
+// ========================================
+
+function buildTunnelWalls(scene) {
+  const tunnelLen = 80;
+
+  // Tunnel ceiling over tracks
+  const tunnelCeiling = new THREE.Mesh(
+    new THREE.PlaneGeometry(6, tunnelLen),
+    MATS.tunnelWall
+  );
+  tunnelCeiling.rotation.x = Math.PI / 2;
+  tunnelCeiling.position.set(-3, 3.8, 0);
+  scene.add(tunnelCeiling);
+
+  // Far tunnel wall (opposite side of tracks from platform)
+  const farWall = new THREE.Mesh(
+    new THREE.PlaneGeometry(tunnelLen, 4.6),
+    MATS.tunnelWall
+  );
+  farWall.rotation.y = -Math.PI / 2;
+  farWall.position.set(-6, 1.5, 0);
+  scene.add(farWall);
+
+  // Tunnel mouth darkness (far ends)
+  for (const zSign of [-1, 1]) {
+    const mouth = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 5),
+      new THREE.MeshBasicMaterial({ color: 0x050508 })
+    );
+    mouth.position.set(-2, 1.5, zSign * 40);
+    mouth.rotation.y = zSign === 1 ? Math.PI : 0;
+    scene.add(mouth);
   }
 }
 
-function addWindows(scene) {
-  const carW = 3, halfW = carW / 2;
-  const windowGeos = [];
+// ========================================
+// TRAIN GLB SETUP
+// ========================================
 
-  for (const side of [-1, 1]) {
-    for (let z = -2; z < 13; z += 3) {
-      const window = new THREE.PlaneGeometry(2.2, 1.0);
-      window.rotateY(side === -1 ? Math.PI / 2 : -Math.PI / 2);
-      window.translate(side * (halfW - 0.01), 1.3, z);
-      windowGeos.push(window);
-    }
-  }
+function setupTrain(scene, subwayGltf) {
+  const trainGroup = new THREE.Group();
 
-  if (windowGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(windowGeos), MATS.subwayWindow));
-    windowGeos.forEach(g => g.dispose());
-  }
+  if (subwayGltf) {
+    const model = subwayGltf.scene;
 
-  // Occasional tunnel light flash (emissive planes outside windows)
-  const flashGeos = [];
-  for (let z = -1; z < 13; z += 6) {
-    for (const side of [-1, 1]) {
-      const flash = new THREE.PlaneGeometry(0.5, 0.3);
-      flash.rotateY(side === -1 ? Math.PI / 2 : -Math.PI / 2);
-      flash.translate(side * (halfW + 0.5), 1.5, z);
-      flashGeos.push(flash);
-    }
-  }
-  if (flashGeos.length > 0) {
-    const flashMat = new THREE.MeshBasicMaterial({
-      color: 0xffaa44,
-      transparent: true,
-      opacity: 0.3,
-    });
-    scene.add(new THREE.Mesh(mergeGeometries(flashGeos), flashMat));
-    flashGeos.forEach(g => g.dispose());
-  }
-}
-
-function addDoors(scene) {
-  const carW = 3, halfW = carW / 2, carH = 2.6;
-  const doorGeos = [];
-
-  // Doors at specific positions on each side
-  for (const side of [-1, 1]) {
-    for (const z of [-4, 5.5, 14]) {
-      // Two sliding door panels
-      for (const offset of [-0.35, 0.35]) {
-        const door = new THREE.BoxGeometry(0.03, 2.0, 0.6);
-        door.translate(side * (halfW - 0.02), 1.1, z + offset);
-        doorGeos.push(door);
+    // Hide all non-TrainBody meshes (bar/kitchen interior clutter)
+    model.traverse((child) => {
+      if (child.isMesh) {
+        if (!child.name.startsWith("TrainBody")) {
+          child.visible = false;
+        } else {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
       }
-      // Door frame
-      const frame = new THREE.BoxGeometry(0.05, 2.1, 0.08);
-      frame.translate(side * (halfW - 0.025), 1.1, z - 0.68);
-      doorGeos.push(frame);
-      const frame2 = frame.clone();
-      frame2.translate(0, 0, 1.36);
-      doorGeos.push(frame2);
-    }
+    });
+
+    // Scale from centimeters to meters
+    model.scale.setScalar(0.01);
+
+    // The train body's Z range at 0.01 scale: ~-7.7 to 7.7 (15.4m long)
+    // Position so front of train is at local Z=0 when stopped
+    model.position.set(0, 0.1, 0);
+
+    trainGroup.add(model);
+  } else {
+    // Fallback: procedural train box if GLB fails
+    const fallbackTrain = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 3.2, 15),
+      new THREE.MeshStandardMaterial({ color: 0x555566, roughness: 0.5 })
+    );
+    fallbackTrain.position.set(0, 1.6, 0);
+    trainGroup.add(fallbackTrain);
   }
 
-  if (doorGeos.length > 0) {
-    scene.add(new THREE.Mesh(mergeGeometries(doorGeos), MATS.subwayDoor));
-    doorGeos.forEach(g => g.dispose());
-  }
+  // Position on tracks, start way off-screen to the left (negative Z)
+  trainGroup.position.set(-3, 0, -55);
+
+  scene.add(trainGroup);
+  return trainGroup;
 }
 
-function addNPCs(scene) {
-  // 8 NPCs: mix of seated and standing
-  const npcConfigs = [
-    { x: -1.15, z: -1, seated: true },
-    { x: -1.15, z: 1, seated: true },
-    { x: 1.15, z: 0, seated: true },
-    { x: 1.15, z: 3, seated: true },
-    { x: 1.15, z: 7, seated: true },
-    { x: -0.5, z: 4, seated: false },
-    { x: 0.3, z: 8, seated: false },
-    { x: -0.6, z: 10, seated: false },
-  ];
+// ========================================
+// LIGHTING
+// ========================================
 
-  const colors = [0x445566, 0x554455, 0x556655, 0x665544, 0x445555, 0x555566, 0x664455, 0x556644];
-
-  npcConfigs.forEach((cfg, i) => {
-    const npc = createNPCSilhouette({ seated: cfg.seated, color: colors[i % colors.length] });
-    npc.position.set(cfg.x, 0, cfg.z);
-    if (!cfg.seated) {
-      // Standing NPCs face random direction
-      npc.rotation.y = Math.random() * Math.PI * 2;
-    }
-    scene.add(npc);
-  });
-}
-
-function addLighting(scene) {
-  // Warm fluorescent ambient
-  const ambient = new THREE.AmbientLight(PALETTE.warmAmbient, 0.3);
+function addLighting(scene, trainGroup) {
+  // Dim underground ambient
+  const ambient = new THREE.AmbientLight(0x333344, 0.25);
   scene.add(ambient);
 
-  // Overhead warm lights
-  for (let z = -3; z < 14; z += 3) {
-    const light = new THREE.PointLight(PALETTE.warmLight, 0.4, 6, 2);
-    light.position.set(0, 2.5, z);
+  // Warm fluorescent platform lights
+  const platX = 4;
+  for (let z = -15; z <= 15; z += 5) {
+    const light = new THREE.PointLight(PALETTE.warmLight, 0.5, 12, 2);
+    light.position.set(platX, 3.5, z);
     scene.add(light);
+
+    // Light fixture visual
+    const fixtureGeo = new THREE.BoxGeometry(0.6, 0.05, 0.15);
+    const fixtureMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: PALETTE.warmLight,
+      emissiveIntensity: 0.8,
+    });
+    const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
+    fixture.position.set(platX, 3.78, z);
+    scene.add(fixture);
   }
 
-  // Subtle cool fill from windows
-  const windowFill = new THREE.DirectionalLight(0x667788, 0.15);
-  windowFill.position.set(-3, 1.5, 5);
-  scene.add(windowFill);
+  // Train headlight — attached to the train so it moves with it
+  const headlight = new THREE.SpotLight(
+    0xffffcc,
+    3.0,
+    80,
+    Math.PI / 8,
+    0.5,
+    1.5
+  );
+  // Position at local front of train (Z direction)
+  headlight.position.set(0, 1.5, 8);
+  headlight.target.position.set(0, 0.5, 20);
+  trainGroup.add(headlight);
+  trainGroup.add(headlight.target);
+
+  // Secondary red tail light glow
+  const taillight = new THREE.PointLight(0xff3333, 0.5, 8);
+  taillight.position.set(0, 1.5, -8);
+  trainGroup.add(taillight);
+
+  // Hemisphere for subtle color contrast
+  const hemi = new THREE.HemisphereLight(0x222244, 0x111111, 0.15);
+  scene.add(hemi);
 }

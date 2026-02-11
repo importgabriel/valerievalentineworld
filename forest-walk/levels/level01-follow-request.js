@@ -4,8 +4,10 @@
 // Multi-phase level: Subway → City → Office
 // Phase state machine managing three sub-scenes with transitions,
 // free-roam player control, interactions, and postprocessing.
+// GLB models loaded in parallel for subway train and city environment.
 
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { buildSubwayScene } from "./level01/SubwayScene.js";
 import { buildCityScene, JPMORGAN_ENTRANCE, CITY_BOUNDS } from "./level01/CityScene.js";
 import { buildOfficeScene, INTERACTION_POINTS, OFFICE_BOUNDS } from "./level01/OfficeScene.js";
@@ -30,9 +32,17 @@ const PHASES = {
 // ========================================
 
 export async function create(chapter, renderer) {
-  // Build all sub-scenes
-  const subway = buildSubwayScene();
-  const city = buildCityScene();
+  // Load all GLB models in parallel
+  const gltfLoader = new GLTFLoader();
+  const [subwayGltf, cityGltf, peopleGltf] = await Promise.all([
+    gltfLoader.loadAsync("/models/environment/subway_bar.glb"),
+    gltfLoader.loadAsync("/models/environment/lowpoly.glb"),
+    gltfLoader.loadAsync("/models/environment/low_poly_people_free_sample_pack.glb"),
+  ]);
+
+  // Build all sub-scenes with loaded models
+  const subway = buildSubwayScene(subwayGltf);
+  const city = buildCityScene(cityGltf, peopleGltf);
   const office = buildOfficeScene();
 
   // Current phase state
@@ -219,6 +229,13 @@ export async function create(chapter, renderer) {
         // Door opening visual effect is handled by the fade beats
       },
 
+      trainArrive(ctx) {
+        // Trigger the train arrival state machine in the subway scene
+        if (subway.startTrainArrival) {
+          subway.startTrainArrival();
+        }
+      },
+
       sitDown(ctx) {
         // Teleport player to chair position
         playerAnchor.position.copy(INTERACTION_POINTS.chair);
@@ -233,8 +250,7 @@ export async function create(chapter, renderer) {
       },
 
       phoneBuzz(ctx) {
-        // Visual phone buzz effect — could add vibration animation
-        // The phone mesh could animate or glow
+        // Visual phone buzz effect
         if (office.phoneMesh) {
           office.phoneMesh.material = new THREE.MeshStandardMaterial({
             color: 0x1a1a1a,

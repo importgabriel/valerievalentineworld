@@ -71,6 +71,17 @@ export const PALETTE = {
   skyWarm: 0xffeedd,
   skyHorizon: 0xffcc88,
   skySunset: 0xff8844,
+
+  // Subway Platform
+  platformConcrete: 0x888888,
+  platformEdge: 0xdddd00,
+  platformTile: 0xccccbb,
+  platformCeiling: 0x555555,
+  platformPillar: 0x999999,
+  trackBed: 0x333333,
+  trackRail: 0x777777,
+  trackTie: 0x553322,
+  tunnelDark: 0x111118,
 };
 
 // ========================================
@@ -177,4 +188,20 @@ export const MATS = {
     opacity: 0.9,
   }),
   windowDark: new THREE.MeshStandardMaterial({ color: 0x222233, roughness: 0.9 }),
+
+  // Subway Platform
+  platformFloor: new THREE.MeshStandardMaterial({ color: PALETTE.platformConcrete, roughness: 0.85 }),
+  platformEdge: new THREE.MeshStandardMaterial({
+    color: PALETTE.platformEdge,
+    emissive: PALETTE.platformEdge,
+    emissiveIntensity: 0.15,
+    roughness: 0.7,
+  }),
+  platformTile: new THREE.MeshStandardMaterial({ color: PALETTE.platformTile, roughness: 0.6 }),
+  platformCeiling: new THREE.MeshStandardMaterial({ color: PALETTE.platformCeiling, roughness: 0.9 }),
+  platformPillar: new THREE.MeshStandardMaterial({ color: PALETTE.platformPillar, roughness: 0.5, metalness: 0.2 }),
+  trackBed: new THREE.MeshStandardMaterial({ color: PALETTE.trackBed, roughness: 0.95 }),
+  trackRail: new THREE.MeshStandardMaterial({ color: PALETTE.trackRail, roughness: 0.3, metalness: 0.7 }),
+  trackTie: new THREE.MeshStandardMaterial({ color: PALETTE.trackTie, roughness: 0.85 }),
+  tunnelWall: new THREE.MeshStandardMaterial({ color: PALETTE.tunnelDark, roughness: 0.95 }),
 };
