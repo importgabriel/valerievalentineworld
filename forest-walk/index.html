@@ -6,34 +6,33 @@
     <title>Our Story — Gabriel & Valerie</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&family=Bangers&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
 
     <!-- Welcome Screen -->
     <div id="welcome-screen">
-      <div class="rain-bg"></div>
-      <div class="hearts-bg">
-        <span class="floating-heart" style="--i:0">&#10084;</span>
-        <span class="floating-heart" style="--i:1">&#10084;</span>
-        <span class="floating-heart" style="--i:2">&#10084;</span>
-        <span class="floating-heart" style="--i:3">&#10084;</span>
-        <span class="floating-heart" style="--i:4">&#10084;</span>
-        <span class="floating-heart" style="--i:5">&#10084;</span>
-        <span class="floating-heart" style="--i:6">&#10084;</span>
-        <span class="floating-heart" style="--i:7">&#10084;</span>
-        <span class="floating-heart" style="--i:8">&#10084;</span>
-        <span class="floating-heart" style="--i:9">&#10084;</span>
+      <div class="leaves-bg">
+        <span class="floating-leaf" style="--i:0">&#127811;</span>
+        <span class="floating-leaf" style="--i:1">&#127807;</span>
+        <span class="floating-leaf" style="--i:2">&#11088;</span>
+        <span class="floating-leaf" style="--i:3">&#127811;</span>
+        <span class="floating-leaf" style="--i:4">&#127807;</span>
+        <span class="floating-leaf" style="--i:5">&#11088;</span>
+        <span class="floating-leaf" style="--i:6">&#127811;</span>
+        <span class="floating-leaf" style="--i:7">&#127807;</span>
+        <span class="floating-leaf" style="--i:8">&#11088;</span>
+        <span class="floating-leaf" style="--i:9">&#127811;</span>
       </div>
       <div class="welcome-content">
         <h1 class="welcome-title">Our Story</h1>
         <p class="welcome-subtitle">Gabriel & Valerie</p>
-        <p class="welcome-tagline">Walk through the city. Make the right choices. This is how we met.</p>
+        <p class="welcome-tagline">Walk through the village. Make the right choices. This is how we met.</p>
         <button id="play-btn">
-          <span class="btn-heart">&#10084;</span>
+          <span class="btn-icon">&#127811;</span>
           Begin
-          <span class="btn-heart">&#10084;</span>
+          <span class="btn-icon">&#127811;</span>
         </button>
       </div>
     </div>
@@ -68,7 +67,7 @@
     <div id="wrong-choice-overlay" class="hidden">
       <div class="result-backdrop"></div>
       <div class="wrong-choice-card">
-        <div class="wrong-icon">&#10060;</div>
+        <div class="wrong-icon">&#128532;</div>
         <h2>That's not how it happened...</h2>
         <p id="wrong-choice-text"></p>
         <button id="retry-btn">Try Again</button>
@@ -79,7 +78,7 @@
     <div id="right-choice-overlay" class="hidden">
       <div class="result-backdrop"></div>
       <div class="right-choice-card">
-        <div class="right-icon">&#10084;</div>
+        <div class="right-icon">&#11088;</div>
         <p id="right-choice-text"></p>
         <button id="continue-btn">Continue</button>
       </div>
@@ -90,25 +89,24 @@
 
     <!-- HUD (during gameplay) -->
     <div id="game-hud" class="hidden">
-      <div class="hud-hint" id="hud-hint">Walk towards the glowing entrance ahead</div>
+      <div class="hud-hint" id="hud-hint">Walk towards the glowing marker ahead</div>
       <div class="hud-progress" id="hud-progress"></div>
       <div class="hud-controls">WASD to move &bull; Mouse to look</div>
     </div>
 
     <!-- Finale Screen -->
     <div id="finale-screen" class="hidden">
-      <div class="rain-bg"></div>
-      <div class="hearts-bg">
-        <span class="floating-heart" style="--i:0">&#10084;</span>
-        <span class="floating-heart" style="--i:1">&#10084;</span>
-        <span class="floating-heart" style="--i:2">&#10084;</span>
-        <span class="floating-heart" style="--i:3">&#10084;</span>
-        <span class="floating-heart" style="--i:4">&#10084;</span>
-        <span class="floating-heart" style="--i:5">&#10084;</span>
-        <span class="floating-heart" style="--i:6">&#10084;</span>
-        <span class="floating-heart" style="--i:7">&#10084;</span>
-        <span class="floating-heart" style="--i:8">&#10084;</span>
-        <span class="floating-heart" style="--i:9">&#10084;</span>
+      <div class="leaves-bg">
+        <span class="floating-leaf" style="--i:0">&#11088;</span>
+        <span class="floating-leaf" style="--i:1">&#127811;</span>
+        <span class="floating-leaf" style="--i:2">&#10084;</span>
+        <span class="floating-leaf" style="--i:3">&#11088;</span>
+        <span class="floating-leaf" style="--i:4">&#127811;</span>
+        <span class="floating-leaf" style="--i:5">&#10084;</span>
+        <span class="floating-leaf" style="--i:6">&#11088;</span>
+        <span class="floating-leaf" style="--i:7">&#127811;</span>
+        <span class="floating-leaf" style="--i:8">&#10084;</span>
+        <span class="floating-leaf" style="--i:9">&#11088;</span>
       </div>
       <div class="finale-content">
         <h1 class="finale-title">Happy Valentine's Day</h1>

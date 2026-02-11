@@ -2,18 +2,19 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { chapters } from "./chapters.js";
-import { buildCity, createRainSystem, updateEntranceMarkers } from "./city.js";
+import { buildCity, updateEntranceMarkers } from "./city.js";
 
 // ========================================
 // GAME STATE
 // ========================================
 
-let gameState = "welcome"; // "welcome" | "hub" | "entering_zone" | "in_zone" | "choice" | "choice_result" | "finale"
+let gameState = "welcome";
 let currentChapterIndex = 0;
 let visitedChapters = new Set();
 let elapsedTime = 0;
 let lastChoiceCorrect = false;
-let choiceResponseText = "";
+let selectedChoiceIndex = 0;
+let gamepadConnected = false;
 
 // ========================================
 // DOM REFERENCES
@@ -31,6 +32,7 @@ const panelContinue = document.getElementById("panel-continue");
 const gameHud = document.getElementById("game-hud");
 const hudHint = document.getElementById("hud-hint");
 const hudProgress = document.getElementById("hud-progress");
+const hudControls = document.querySelector(".hud-controls");
 const finaleScreen = document.getElementById("finale-screen");
 const replayBtn = document.getElementById("replay-btn");
 const choicePanel = document.getElementById("choice-panel");
@@ -45,56 +47,50 @@ const continueBtn = document.getElementById("continue-btn");
 const transitionOverlay = document.getElementById("transition-overlay");
 
 // ========================================
-// THREE.JS SCENE SETUP
+// THREE.JS SCENE SETUP — Bright AC daytime
 // ========================================
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x080c18, 10, 70);
-scene.background = new THREE.Color(0x060a14);
+scene.fog = new THREE.Fog(0xd4e6f1, 40, 80);
+scene.background = new THREE.Color(0x87ceeb);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: "high-performance",
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.9;
+renderer.toneMappingExposure = 1.2;
 document.body.appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(
   55,
   window.innerWidth / window.innerHeight,
   0.1,
-  200
+  80
 );
 
 // ========================================
-// LIGHTING — Dark rainy city
+// LIGHTING — Warm AC sunlight (3 lights total)
 // ========================================
 
-// Cool moonlight from above
-const moonLight = new THREE.DirectionalLight(0x4466aa, 0.3);
-moonLight.position.set(5, 15, 10);
-scene.add(moonLight);
+const sunLight = new THREE.DirectionalLight(0xfff5e0, 1.0);
+sunLight.position.set(10, 20, 10);
+scene.add(sunLight);
 
-// Dim ambient — blue-gray
-const ambient = new THREE.AmbientLight(0x1a1a30, 0.4);
+const ambient = new THREE.AmbientLight(0xfff8f0, 0.5);
 scene.add(ambient);
 
-// Hemisphere — cool sky, dark ground
-const hemi = new THREE.HemisphereLight(0x223355, 0x0a0a15, 0.3);
+const hemi = new THREE.HemisphereLight(0x87ceeb, 0x7ec850, 0.4);
 scene.add(hemi);
 
 // ========================================
-// BUILD CITY
+// BUILD VILLAGE
 // ========================================
 
 const { storyBuildings, entranceMarkers } = buildCity(scene, chapters);
-
-// ========================================
-// RAIN SYSTEM
-// ========================================
-
-const rain = createRainSystem(scene, 800);
 
 // ========================================
 // PLAYER
@@ -104,7 +100,6 @@ const player = new THREE.Object3D();
 player.position.set(0, 0, -3);
 scene.add(player);
 
-// Character model + animation
 const gltfLoader = new GLTFLoader();
 const fbxLoader = new FBXLoader();
 let characterModel = null;
@@ -112,48 +107,29 @@ let mixer = null;
 let walkAction = null;
 let isWalking = false;
 
-gltfLoader.load(
-  "/models/avatar/valerie1.glb",
-  (gltf) => {
+// Parallel asset loading
+Promise.all([
+  gltfLoader.loadAsync("/models/avatar/valerie1.glb"),
+  fbxLoader.loadAsync("/models/animations/Walking.fbx"),
+])
+  .then(([gltf, fbx]) => {
     characterModel = gltf.scene;
     characterModel.scale.setScalar(1.0);
     characterModel.position.y = 0;
     player.add(characterModel);
-    console.log("Character loaded!");
 
-    // Create animation mixer
     mixer = new THREE.AnimationMixer(characterModel);
 
-    // Load walking animation
-    fbxLoader.load(
-      "/models/animations/Walking.fbx",
-      (fbx) => {
-        if (fbx.animations && fbx.animations.length > 0) {
-          const walkClip = fbx.animations[0];
-          walkAction = mixer.clipAction(walkClip);
-          walkAction.setLoop(THREE.LoopRepeat);
-          walkAction.timeScale = 1.2;
-          console.log("Walking animation loaded!");
-        }
-      },
-      undefined,
-      (error) => {
-        console.error("Error loading walking animation:", error);
-      }
-    );
-  },
-  (progress) => {
-    if (progress.total > 0) {
-      console.log(
-        "Loading...",
-        ((progress.loaded / progress.total) * 100).toFixed(0) + "%"
-      );
+    if (fbx.animations && fbx.animations.length > 0) {
+      const walkClip = fbx.animations[0];
+      walkAction = mixer.clipAction(walkClip);
+      walkAction.setLoop(THREE.LoopRepeat);
+      walkAction.timeScale = 1.2;
     }
-  },
-  (error) => {
-    console.error("Error loading character:", error);
-  }
-);
+  })
+  .catch((error) => {
+    console.error("Error loading assets:", error);
+  });
 
 // ========================================
 // INPUT STATE
@@ -197,6 +173,10 @@ window.addEventListener("mousemove", (e) => {
   }
 });
 
+// ========================================
+// GAMEPAD INPUT
+// ========================================
+
 function getGamepadInput() {
   const gp = navigator.getGamepads()?.[0];
   if (!gp) return { moveX: 0, moveY: 0, lookX: 0, lookY: 0 };
@@ -214,6 +194,44 @@ function getGamepadInput() {
     lookY: deadzone(gp.axes[3]),
   };
 }
+
+// Button edge detection — poll all buttons once per frame
+const currButtons = new Array(17).fill(false);
+const prevButtons = new Array(17).fill(false);
+
+function pollGamepadButtons() {
+  const gp = navigator.getGamepads()?.[0];
+  if (!gp) return;
+  for (let i = 0; i < Math.min(gp.buttons.length, currButtons.length); i++) {
+    currButtons[i] = gp.buttons[i].pressed;
+  }
+}
+
+function buttonJustPressed(index) {
+  return currButtons[index] && !prevButtons[index];
+}
+
+function saveButtonState() {
+  for (let i = 0; i < currButtons.length; i++) {
+    prevButtons[i] = currButtons[i];
+  }
+}
+
+// Gamepad connection detection
+window.addEventListener("gamepadconnected", () => {
+  gamepadConnected = true;
+  if (hudControls) {
+    hudControls.textContent =
+      "Left Stick: move \u2022 Right Stick: look \u2022 A: interact";
+  }
+});
+
+window.addEventListener("gamepaddisconnected", () => {
+  gamepadConnected = false;
+  if (hudControls) {
+    hudControls.textContent = "WASD to move \u2022 Mouse to look";
+  }
+});
 
 // ========================================
 // PLAYER & CAMERA STATE
@@ -236,6 +254,14 @@ const CAM_STICK_SENSITIVITY = 3.0;
 
 const TRIGGER_RADIUS = 3.0;
 
+// Pre-allocated temp vectors (avoid per-frame GC)
+const _moveDir = new THREE.Vector3();
+const _upAxis = new THREE.Vector3(0, 1, 0);
+const _zeroVec = new THREE.Vector3();
+const _camTarget = new THREE.Vector3();
+const _lookTarget = new THREE.Vector3();
+const _velDelta = new THREE.Vector3();
+
 // ========================================
 // UI FUNCTIONS
 // ========================================
@@ -256,8 +282,9 @@ function showStoryPanel(index) {
     panelQuote.classList.add("hidden");
   }
 
-  // Change the continue button to say "Make Your Choice"
-  panelContinue.innerHTML = "Make Your Choice <span>&#10140;</span>";
+  panelContinue.innerHTML = gamepadConnected
+    ? 'Make Your Choice <span class="glyph-a">A</span>'
+    : "Make Your Choice <span>&#10140;</span>";
   storyPanel.classList.remove("hidden");
 }
 
@@ -268,28 +295,38 @@ function hideStoryPanel() {
 function showChoicePanel(index) {
   const chapter = chapters[index];
   gameState = "choice";
+  selectedChoiceIndex = 0;
 
   choicePrompt.textContent = chapter.choicePrompt;
   choiceOptions.innerHTML = "";
 
-  // Shuffle choices for presentation (but track correct)
   const shuffled = [...chapter.choices].sort(() => Math.random() - 0.5);
 
-  shuffled.forEach((choice) => {
+  shuffled.forEach((choice, i) => {
     const btn = document.createElement("button");
-    btn.className = "choice-btn";
+    btn.className = "choice-btn" + (i === 0 ? " selected" : "");
     btn.textContent = choice.text;
     btn.addEventListener("click", () => handleChoice(choice, index));
+    btn.addEventListener("mouseenter", () => {
+      selectedChoiceIndex = i;
+      updateChoiceHighlight();
+    });
     choiceOptions.appendChild(btn);
   });
 
   choicePanel.classList.remove("hidden");
 }
 
+function updateChoiceHighlight() {
+  const btns = choiceOptions.querySelectorAll(".choice-btn");
+  btns.forEach((btn, i) => {
+    btn.classList.toggle("selected", i === selectedChoiceIndex);
+  });
+}
+
 function handleChoice(choice, chapterIndex) {
   choicePanel.classList.add("hidden");
   lastChoiceCorrect = choice.correct;
-  choiceResponseText = choice.response;
   gameState = "choice_result";
 
   if (choice.correct) {
@@ -306,7 +343,6 @@ function handleChoice(choice, chapterIndex) {
 function continueAfterCorrectChoice() {
   rightChoiceOverlay.classList.add("hidden");
 
-  // Check if all chapters visited
   if (visitedChapters.size === chapters.length) {
     setTimeout(() => {
       gameState = "finale";
@@ -316,10 +352,8 @@ function continueAfterCorrectChoice() {
     return;
   }
 
-  // Move to next chapter
   currentChapterIndex = getNextChapterIndex();
 
-  // Transition back to hub
   doTransition(() => {
     gameState = "hub";
     updateHudHint();
@@ -329,7 +363,6 @@ function continueAfterCorrectChoice() {
 function retryChapter() {
   wrongChoiceOverlay.classList.add("hidden");
 
-  // Transition and re-enter the zone
   doTransition(() => {
     showStoryPanel(currentChapterIndex);
   });
@@ -359,13 +392,13 @@ function doTransition(callback) {
 }
 
 function updateHud() {
-  hudProgress.textContent = `Chapters: ${visitedChapters.size} / ${chapters.length}`;
+  hudProgress.textContent = `${visitedChapters.size} / ${chapters.length}`;
 }
 
 function updateHudHint() {
   const nextIndex = getNextChapterIndex();
   if (nextIndex >= 0) {
-    hudHint.textContent = `Walk towards the glowing entrance — ${chapters[nextIndex].title}`;
+    hudHint.textContent = `Walk towards the glowing marker \u2014 ${chapters[nextIndex].title}`;
     hudHint.style.opacity = "1";
     setTimeout(() => {
       hudHint.style.opacity = "0";
@@ -417,15 +450,77 @@ panelContinue.addEventListener("click", () => {
 retryBtn.addEventListener("click", retryChapter);
 continueBtn.addEventListener("click", continueAfterCorrectChoice);
 
-// Allow spacebar/enter to advance
 window.addEventListener("keydown", (e) => {
   if (e.code === "Space" || e.code === "Enter") {
     if (gameState === "in_zone") {
       hideStoryPanel();
       showChoicePanel(currentChapterIndex);
+    } else if (gameState === "choice") {
+      const btns = choiceOptions.querySelectorAll(".choice-btn");
+      if (btns[selectedChoiceIndex]) btns[selectedChoiceIndex].click();
+    }
+  }
+  // Arrow/WASD for choice navigation
+  if (gameState === "choice") {
+    const btns = choiceOptions.querySelectorAll(".choice-btn");
+    if (e.code === "ArrowUp" || e.code === "KeyW") {
+      selectedChoiceIndex =
+        (selectedChoiceIndex - 1 + btns.length) % btns.length;
+      updateChoiceHighlight();
+      e.preventDefault();
+    } else if (e.code === "ArrowDown" || e.code === "KeyS") {
+      selectedChoiceIndex = (selectedChoiceIndex + 1) % btns.length;
+      updateChoiceHighlight();
+      e.preventDefault();
     }
   }
 });
+
+// ========================================
+// GAMEPAD BUTTON HANDLING
+// ========================================
+
+function handleGamepadButtons() {
+  // A button (0) - Confirm
+  if (buttonJustPressed(0)) {
+    if (gameState === "welcome") {
+      startGame();
+    } else if (gameState === "in_zone") {
+      hideStoryPanel();
+      showChoicePanel(currentChapterIndex);
+    } else if (gameState === "choice") {
+      const btns = choiceOptions.querySelectorAll(".choice-btn");
+      if (btns[selectedChoiceIndex]) btns[selectedChoiceIndex].click();
+    } else if (gameState === "choice_result") {
+      if (lastChoiceCorrect) {
+        continueAfterCorrectChoice();
+      } else {
+        retryChapter();
+      }
+    } else if (gameState === "finale") {
+      replayGame();
+    }
+  }
+
+  // D-pad Up (12)
+  if (buttonJustPressed(12)) {
+    if (gameState === "choice") {
+      const btns = choiceOptions.querySelectorAll(".choice-btn");
+      selectedChoiceIndex =
+        (selectedChoiceIndex - 1 + btns.length) % btns.length;
+      updateChoiceHighlight();
+    }
+  }
+
+  // D-pad Down (13)
+  if (buttonJustPressed(13)) {
+    if (gameState === "choice") {
+      const btns = choiceOptions.querySelectorAll(".choice-btn");
+      selectedChoiceIndex = (selectedChoiceIndex + 1) % btns.length;
+      updateChoiceHighlight();
+    }
+  }
+}
 
 // ========================================
 // UPDATE
@@ -434,16 +529,21 @@ window.addEventListener("keydown", (e) => {
 function update(dt) {
   elapsedTime += dt;
 
-  // Update rain
-  rain.update(dt, player.position);
-
   // Update animation mixer
-  if (mixer) {
-    mixer.update(dt);
-  }
+  if (mixer) mixer.update(dt);
 
   // Update entrance markers
-  updateEntranceMarkers(entranceMarkers, currentChapterIndex, visitedChapters, elapsedTime);
+  updateEntranceMarkers(
+    entranceMarkers,
+    currentChapterIndex,
+    visitedChapters,
+    elapsedTime
+  );
+
+  // Handle gamepad buttons (poll → check → save)
+  pollGamepadButtons();
+  handleGamepadButtons();
+  saveButtonState();
 
   // Welcome screen — slow camera orbit
   if (gameState === "welcome") {
@@ -458,9 +558,7 @@ function update(dt) {
   }
 
   // Only process movement during hub state
-  if (gameState !== "hub") {
-    return;
-  }
+  if (gameState !== "hub") return;
 
   const gp = getGamepadInput();
 
@@ -486,19 +584,21 @@ function update(dt) {
     );
   }
 
-  // Movement direction (camera-relative)
-  const moveDir = new THREE.Vector3(inputX, 0, inputZ);
-  const moveLength = Math.min(moveDir.length(), 1);
+  // Movement direction (camera-relative) — pre-allocated vectors
+  _moveDir.set(inputX, 0, inputZ);
+  const moveLength = Math.min(_moveDir.length(), 1);
   const wasWalking = isWalking;
 
   if (moveLength > 0) {
-    moveDir.normalize();
-    moveDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
+    _moveDir.normalize();
+    _moveDir.applyAxisAngle(_upAxis, cameraYaw);
+    _moveDir.multiplyScalar(MOVE_SPEED * moveLength);
+    playerVelocity.lerp(_moveDir, 1 - Math.exp(-MOVE_ACCEL * dt));
 
-    const targetVel = moveDir.multiplyScalar(MOVE_SPEED * moveLength);
-    playerVelocity.lerp(targetVel, 1 - Math.exp(-MOVE_ACCEL * dt));
-
-    const targetRotation = Math.atan2(playerVelocity.x, playerVelocity.z);
+    const targetRotation = Math.atan2(
+      playerVelocity.x,
+      playerVelocity.z
+    );
     player.rotation.y = THREE.MathUtils.lerp(
       player.rotation.y,
       targetRotation,
@@ -507,10 +607,7 @@ function update(dt) {
 
     isWalking = true;
   } else {
-    playerVelocity.lerp(
-      new THREE.Vector3(),
-      1 - Math.exp(-MOVE_DECEL * dt)
-    );
+    playerVelocity.lerp(_zeroVec, 1 - Math.exp(-MOVE_DECEL * dt));
     isWalking = false;
   }
 
@@ -525,7 +622,9 @@ function update(dt) {
     }
   }
 
-  player.position.add(playerVelocity.clone().multiplyScalar(dt));
+  // Apply velocity — pre-allocated
+  _velDelta.copy(playerVelocity).multiplyScalar(dt);
+  player.position.add(_velDelta);
 
   // Clamp player to city bounds
   player.position.x = THREE.MathUtils.clamp(player.position.x, -10, 10);
@@ -534,7 +633,6 @@ function update(dt) {
   // Check entrance triggers
   const nextChapter = chapters[currentChapterIndex];
   if (nextChapter) {
-    // Entrance marker position
     const side = currentChapterIndex % 2 === 0 ? -1 : 1;
     const entranceX = side * 7;
     const entranceZ = nextChapter.hubPosition.z;
@@ -544,34 +642,29 @@ function update(dt) {
     const dist = Math.sqrt(dx * dx + dz * dz);
 
     if (dist < TRIGGER_RADIUS) {
-      // Enter zone
       doTransition(() => {
         showStoryPanel(currentChapterIndex);
       });
-      gameState = "entering_zone"; // Prevent re-triggering
+      gameState = "entering_zone";
     }
   }
 
-  // Update camera
+  // Update camera — pre-allocated vectors
   const camX =
     Math.sin(cameraYaw) * Math.cos(cameraPitch) * CAM_DISTANCE;
-  const camY =
-    CAM_HEIGHT + Math.sin(cameraPitch) * CAM_DISTANCE * 0.6;
+  const camY = CAM_HEIGHT + Math.sin(cameraPitch) * CAM_DISTANCE * 0.6;
   const camZ =
     Math.cos(cameraYaw) * Math.cos(cameraPitch) * CAM_DISTANCE;
 
-  const targetCamPos = player.position
-    .clone()
-    .add(new THREE.Vector3(camX, camY, camZ));
-  camera.position.lerp(
-    targetCamPos,
-    1 - Math.exp(-CAM_SMOOTHING * dt)
-  );
+  _camTarget.copy(player.position);
+  _camTarget.x += camX;
+  _camTarget.y += camY;
+  _camTarget.z += camZ;
+  camera.position.lerp(_camTarget, 1 - Math.exp(-CAM_SMOOTHING * dt));
 
-  const lookTarget = player.position
-    .clone()
-    .add(new THREE.Vector3(0, CAM_LOOKAT_HEIGHT, 0));
-  camera.lookAt(lookTarget);
+  _lookTarget.copy(player.position);
+  _lookTarget.y += CAM_LOOKAT_HEIGHT;
+  camera.lookAt(_lookTarget);
 }
 
 // ========================================
