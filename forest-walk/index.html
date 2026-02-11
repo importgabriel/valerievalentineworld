@@ -13,6 +13,7 @@
 
     <!-- Welcome Screen -->
     <div id="welcome-screen">
+      <div class="rain-bg"></div>
       <div class="hearts-bg">
         <span class="floating-heart" style="--i:0">&#10084;</span>
         <span class="floating-heart" style="--i:1">&#10084;</span>
@@ -28,7 +29,7 @@
       <div class="welcome-content">
         <h1 class="welcome-title">Our Story</h1>
         <p class="welcome-subtitle">Gabriel & Valerie</p>
-        <p class="welcome-tagline">A love story told one chapter at a time</p>
+        <p class="welcome-tagline">Walk through the city. Make the right choices. This is how we met.</p>
         <button id="play-btn">
           <span class="btn-heart">&#10084;</span>
           Begin
@@ -47,19 +48,56 @@
         <div class="panel-body" id="panel-body"></div>
         <div class="panel-quote hidden" id="panel-quote"></div>
         <button class="panel-continue-btn" id="panel-continue">
-          Continue <span>&#10140;</span>
+          Make Your Choice <span>&#10140;</span>
         </button>
       </div>
     </div>
 
+    <!-- Dialogue Choice Panel -->
+    <div id="choice-panel" class="hidden">
+      <div class="choice-backdrop"></div>
+      <div class="choice-container">
+        <div class="choice-prompt" id="choice-prompt"></div>
+        <div class="choice-options" id="choice-options">
+          <!-- Dynamically filled with choice buttons -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Wrong Choice Overlay -->
+    <div id="wrong-choice-overlay" class="hidden">
+      <div class="result-backdrop"></div>
+      <div class="wrong-choice-card">
+        <div class="wrong-icon">&#10060;</div>
+        <h2>That's not how it happened...</h2>
+        <p id="wrong-choice-text"></p>
+        <button id="retry-btn">Try Again</button>
+      </div>
+    </div>
+
+    <!-- Right Choice Overlay -->
+    <div id="right-choice-overlay" class="hidden">
+      <div class="result-backdrop"></div>
+      <div class="right-choice-card">
+        <div class="right-icon">&#10084;</div>
+        <p id="right-choice-text"></p>
+        <button id="continue-btn">Continue</button>
+      </div>
+    </div>
+
+    <!-- Scene Transition Overlay -->
+    <div id="transition-overlay" class="hidden"></div>
+
     <!-- HUD (during gameplay) -->
     <div id="game-hud" class="hidden">
-      <div class="hud-hint" id="hud-hint">Walk towards the glowing heart ahead</div>
+      <div class="hud-hint" id="hud-hint">Walk towards the glowing entrance ahead</div>
       <div class="hud-progress" id="hud-progress"></div>
+      <div class="hud-controls">WASD to move &bull; Mouse to look</div>
     </div>
 
     <!-- Finale Screen -->
     <div id="finale-screen" class="hidden">
+      <div class="rain-bg"></div>
       <div class="hearts-bg">
         <span class="floating-heart" style="--i:0">&#10084;</span>
         <span class="floating-heart" style="--i:1">&#10084;</span>
@@ -75,7 +113,7 @@
       <div class="finale-content">
         <h1 class="finale-title">Happy Valentine's Day</h1>
         <p class="finale-name">Valerie</p>
-        <p class="finale-message">From the moment you requested to follow me, to 12 hours at 1000 Faces — every chapter led me to you.</p>
+        <p class="finale-message">From the moment you requested to follow me, to 12 hours at 1000 Faces — every chapter led me to you. Every choice I made was because of you.</p>
         <p class="finale-heart">&#10084;</p>
         <button id="replay-btn">Replay Our Story</button>
       </div>

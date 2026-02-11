@@ -12,6 +12,28 @@ canvas { display: block; }
 .hidden { display: none !important; }
 
 /* ============================================
+   RAIN BACKGROUND (CSS overlay for screens)
+   ============================================ */
+.rain-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      transparent,
+      transparent 4px,
+      rgba(100, 130, 180, 0.03) 4px,
+      rgba(100, 130, 180, 0.03) 5px
+    );
+  animation: rainShift 0.5s linear infinite;
+}
+@keyframes rainShift {
+  from { transform: translateY(-10px); }
+  to { transform: translateY(0px); }
+}
+
+/* ============================================
    WELCOME SCREEN
    ============================================ */
 #welcome-screen {
@@ -21,7 +43,7 @@ canvas { display: block; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a0a0e 0%, #2d0a1a 30%, #4a0e2a 60%, #1a0a0e 100%);
+  background: linear-gradient(135deg, #060a14 0%, #0a1025 30%, #121830 60%, #060a14 100%);
   transition: opacity 1s ease, transform 1s ease;
 }
 #welcome-screen.fade-out {
@@ -39,7 +61,7 @@ canvas { display: block; }
 }
 .floating-heart {
   position: absolute;
-  color: rgba(255, 60, 100, 0.15);
+  color: rgba(231, 76, 111, 0.15);
   font-size: calc(20px + var(--i) * 8px);
   left: calc(var(--i) * 10%);
   bottom: -40px;
@@ -83,7 +105,7 @@ canvas { display: block; }
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.1em;
-  text-shadow: 0 0 40px rgba(255, 80, 120, 0.5);
+  text-shadow: 0 0 40px rgba(231, 76, 111, 0.5);
   letter-spacing: 0.02em;
 }
 .welcome-subtitle {
@@ -98,8 +120,11 @@ canvas { display: block; }
   font-size: clamp(0.8rem, 2vw, 1rem);
   color: rgba(255, 255, 255, 0.5);
   margin: 0 0 2.5em;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 #play-btn {
@@ -253,6 +278,7 @@ canvas { display: block; }
   color: #c0392b;
   font-weight: 700;
   box-shadow: 2px 2px 0 #1a1a1a;
+  white-space: pre-line;
 }
 /* Speech bubble tail */
 .panel-quote::after {
@@ -313,6 +339,284 @@ canvas { display: block; }
 }
 
 /* ============================================
+   DIALOGUE CHOICE PANEL (Fallout 4-style)
+   ============================================ */
+#choice-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 92;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 40px;
+  animation: panelFadeIn 0.4s ease-out;
+}
+
+.choice-backdrop {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0.2) 100%);
+  backdrop-filter: blur(2px);
+}
+
+.choice-container {
+  position: relative;
+  z-index: 1;
+  width: 90%;
+  max-width: 700px;
+  animation: choiceSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes choiceSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.choice-prompt {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  line-height: 1.5;
+}
+
+.choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.choice-btn {
+  font-family: 'Bangers', cursive;
+  font-size: clamp(1rem, 2.5vw, 1.15rem);
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: rgba(20, 20, 40, 0.8);
+  border: 2px solid rgba(231, 76, 111, 0.4);
+  border-radius: 6px;
+  padding: 14px 24px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  position: relative;
+  overflow: hidden;
+}
+
+.choice-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #e74c6f;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.choice-btn:hover {
+  background: rgba(231, 76, 111, 0.2);
+  border-color: #e74c6f;
+  transform: translateX(8px);
+  box-shadow: 0 0 20px rgba(231, 76, 111, 0.2);
+}
+
+.choice-btn:hover::before {
+  opacity: 1;
+}
+
+.choice-btn:active {
+  transform: translateX(4px) scale(0.98);
+}
+
+/* ============================================
+   WRONG CHOICE OVERLAY
+   ============================================ */
+#wrong-choice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: panelFadeIn 0.4s ease-out;
+}
+
+.result-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(6px);
+}
+
+.wrong-choice-card {
+  position: relative;
+  background: linear-gradient(135deg, #1a0a0e, #2a0a12);
+  border: 3px solid #cc3333;
+  border-radius: 8px;
+  max-width: 480px;
+  width: 90%;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(204, 51, 51, 0.3);
+  animation: wrongShake 0.5s ease-out;
+}
+
+@keyframes wrongShake {
+  0% { transform: translateX(0); }
+  15% { transform: translateX(-10px); }
+  30% { transform: translateX(8px); }
+  45% { transform: translateX(-6px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+.wrong-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.wrong-choice-card h2 {
+  font-family: 'Bangers', cursive;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  color: #cc3333;
+  margin: 0 0 16px;
+  letter-spacing: 0.04em;
+}
+
+.wrong-choice-card p {
+  font-family: 'Lato', sans-serif;
+  font-size: clamp(0.9rem, 2vw, 1.05rem);
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+
+#retry-btn {
+  font-family: 'Bangers', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: linear-gradient(135deg, #992222, #cc3333);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 40px;
+  padding: 12px 36px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#retry-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(204, 51, 51, 0.4);
+}
+
+/* ============================================
+   RIGHT CHOICE OVERLAY
+   ============================================ */
+#right-choice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: panelFadeIn 0.4s ease-out;
+}
+
+.right-choice-card {
+  position: relative;
+  background: linear-gradient(135deg, #0a1a0e, #0a2a12);
+  border: 3px solid #e74c6f;
+  border-radius: 8px;
+  max-width: 480px;
+  width: 90%;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(231, 76, 111, 0.3);
+  animation: rightPulse 0.6s ease-out;
+}
+
+@keyframes rightPulse {
+  0% { transform: scale(0.9); opacity: 0; }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.right-icon {
+  font-size: 3rem;
+  color: #e74c6f;
+  margin-bottom: 16px;
+  animation: heartbeat 1.2s ease-in-out infinite;
+}
+
+.right-choice-card p {
+  font-family: 'Lato', sans-serif;
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.65;
+  margin: 0 0 28px;
+  font-style: italic;
+}
+
+#continue-btn {
+  font-family: 'Bangers', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: linear-gradient(135deg, #c0392b, #e74c6f);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 40px;
+  padding: 12px 36px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#continue-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(231, 76, 111, 0.4);
+}
+
+/* ============================================
+   TRANSITION OVERLAY
+   ============================================ */
+#transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 88;
+  background: #000;
+  pointer-events: none;
+}
+
+#transition-overlay.fade-in {
+  animation: transIn 0.5s ease-out forwards;
+}
+
+#transition-overlay.fade-out {
+  animation: transOut 0.5s ease-in forwards;
+}
+
+@keyframes transIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes transOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* ============================================
    GAME HUD
    ============================================ */
 #game-hud {
@@ -353,6 +657,16 @@ canvas { display: block; }
   letter-spacing: 0.05em;
 }
 
+.hud-controls {
+  position: absolute;
+  bottom: 36px;
+  right: 24px;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: 'Lato', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
 /* ============================================
    FINALE SCREEN
    ============================================ */
@@ -363,7 +677,7 @@ canvas { display: block; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a0a0e 0%, #2d0a1a 30%, #4a0e2a 60%, #1a0a0e 100%);
+  background: linear-gradient(135deg, #060a14 0%, #0a1025 30%, #1a1030 60%, #060a14 100%);
   animation: fadeIn 2s ease-out;
 }
 @keyframes fadeIn {
@@ -384,7 +698,7 @@ canvas { display: block; }
   font-weight: 700;
   color: #fff;
   margin: 0 0 0.2em;
-  text-shadow: 0 0 50px rgba(255, 80, 120, 0.6);
+  text-shadow: 0 0 50px rgba(231, 76, 111, 0.6);
 }
 
 .finale-name {
