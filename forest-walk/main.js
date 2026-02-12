@@ -520,10 +520,15 @@ async function enterLevel(chapterIndex) {
       }
     }
 
-    // Stop walking animation in level
+    // Stop walking animation and pass it to the level's PlayerController
     if (walkAction && isWalking) {
       walkAction.fadeOut(0.3);
       isWalking = false;
+    }
+
+    // Pass walkAction to level so PlayerController can manage walk animation
+    if (walkAction && levelScene.setWalkAction) {
+      levelScene.setWalkAction(walkAction);
     }
 
     // Start the narrative sequence
@@ -574,12 +579,21 @@ window.addEventListener("keydown", (e) => {
     if (gameState === "level_freeroam") {
       const active = sceneManager.getActiveScene();
       if (active && active.tryInteract) active.tryInteract();
+    } else if (gameState === "level_sequence") {
+      // Signal A key to sequence runner for key_prompt beats
+      sequenceRunner.signal("key_a");
     } else if (gameState === "in_zone") {
       hideStoryPanel();
       showChoicePanel(currentChapterIndex);
     } else if (gameState === "choice") {
       const btns = choiceOptions.querySelectorAll(".choice-btn");
       if (btns[selectedChoiceIndex]) btns[selectedChoiceIndex].click();
+    }
+  }
+  // B key handling for key_prompt beats (stop working, etc.)
+  if (e.code === "KeyB" || e.code === "Escape") {
+    if (gameState === "level_sequence") {
+      sequenceRunner.signal("key_b");
     }
   }
   if (gameState === "choice") {
@@ -603,7 +617,10 @@ window.addEventListener("keydown", (e) => {
 
 function handleGamepadButtons() {
   if (buttonJustPressed(0)) {
-    if (gameState === "level_freeroam") {
+    if (gameState === "level_sequence") {
+      // A button → signal key_a to sequence runner
+      sequenceRunner.signal("key_a");
+    } else if (gameState === "level_freeroam") {
       const active = sceneManager.getActiveScene();
       if (active && active.tryInteract) active.tryInteract();
     } else if (gameState === "welcome") {
@@ -622,6 +639,13 @@ function handleGamepadButtons() {
       }
     } else if (gameState === "finale") {
       replayGame();
+    }
+  }
+
+  // B button (gamepad button 1) — signal to sequence runner
+  if (buttonJustPressed(1)) {
+    if (gameState === "level_sequence") {
+      sequenceRunner.signal("key_b");
     }
   }
 

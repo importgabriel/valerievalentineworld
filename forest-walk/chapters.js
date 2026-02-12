@@ -98,7 +98,7 @@ export const chapters = [
       { type: "custom_callback", callbackName: "playDoorAnimation", duration: 0.5 },
       { type: "fade", direction: "out", duration: 0.8 },
 
-      // === PHASE 4: OFFICE FREE-ROAM ===
+      // === PHASE 4: OFFICE — WALK TO CHAIR ===
       {
         type: "text_bubble",
         text: "Time to get to work.",
@@ -114,7 +114,11 @@ export const chapters = [
       },
       { type: "custom_callback", callbackName: "sitDown", duration: 1.0 },
       { type: "wait", duration: 0.5 },
-      { type: "overlay", overlayId: "computer-screen", action: "show" },
+
+      // === PHASE 5: INTERACTIVE WORK ===
+      // Player presses A to start working
+      { type: "key_prompt", key: "A", promptText: "Start working" },
+      { type: "custom_callback", callbackName: "startWorking", duration: 0.3 },
       {
         type: "text_bubble",
         text: "Let's get this code review done...",
@@ -122,14 +126,21 @@ export const chapters = [
         duration: 2.5,
         offsetY: 0.5,
       },
-      { type: "wait", duration: 3.5 },
 
-      // === PHASE 5: PHONE NOTIFICATION ===
-      { type: "custom_callback", callbackName: "phoneBuzz", duration: 0.5 },
-      { type: "overlay", overlayId: "computer-screen", action: "hide" },
-      { type: "wait", duration: 0.8 },
-      { type: "overlay", overlayId: "phone-screen", action: "show" },
-      { type: "wait", duration: 2.5 },
+      // Player presses B to stop working
+      { type: "key_prompt", key: "B", promptText: "Stop working" },
+      { type: "custom_callback", callbackName: "stopWorking", duration: 0.3 },
+      { type: "wait", duration: 0.5 },
+
+      // === PHASE 6: PHONE NOTIFICATION ===
+      // Mini phone pops up in top-right with notification
+      { type: "custom_callback", callbackName: "showMiniPhone", duration: 0.5 },
+      { type: "wait", duration: 1.0 },
+
+      // Player presses A to check phone
+      { type: "key_prompt", key: "A", promptText: "Check phone" },
+      { type: "custom_callback", callbackName: "checkPhone", duration: 0.3 },
+      { type: "wait", duration: 2.0 },
       {
         type: "text_bubble",
         text: "valerie.rengifo started following you.",
@@ -147,7 +158,7 @@ export const chapters = [
       },
       { type: "custom_callback", callbackName: "cameraToChoice", duration: 1.0 },
 
-      // === PHASE 6: CHOICE ===
+      // === PHASE 7: CHOICE ===
       { type: "show_choice" },
     ],
   },

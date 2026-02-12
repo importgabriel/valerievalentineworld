@@ -64,6 +64,14 @@ export class PlayerController {
     this.bounds = bounds;
   }
 
+  setWalkAction(action) {
+    this.walkAction = action;
+  }
+
+  setCharacterModel(model) {
+    this.characterModel = model;
+  }
+
   addCollider(box3) {
     this.colliders.push(box3);
   }
