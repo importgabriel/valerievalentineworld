@@ -380,41 +380,93 @@ function buildTunnelWalls(scene) {
 // TRAIN GLB SETUP
 // ========================================
 
+function buildProceduralTrain() {
+  const group = new THREE.Group();
+
+  const carLength = 16;
+  const carWidth = 3;
+  const carHeight = 3.2;
+
+  // Main body
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x888899, roughness: 0.4, metalness: 0.3 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(carWidth, carHeight, carLength), bodyMat);
+  body.position.set(0, carHeight / 2 + 0.1, 0);
+  body.castShadow = true;
+  group.add(body);
+
+  // Roof (slightly wider, rounded look)
+  const roof = new THREE.Mesh(
+    new THREE.BoxGeometry(carWidth + 0.1, 0.15, carLength + 0.1),
+    new THREE.MeshStandardMaterial({ color: 0x777788, roughness: 0.5, metalness: 0.2 })
+  );
+  roof.position.set(0, carHeight + 0.18, 0);
+  group.add(roof);
+
+  // Windows (both sides)
+  const windowMat = new THREE.MeshStandardMaterial({
+    color: 0x334455, roughness: 0.1, metalness: 0.3,
+    emissive: 0x112233, emissiveIntensity: 0.3,
+  });
+  for (const side of [-1, 1]) {
+    for (let z = -carLength / 2 + 1.5; z < carLength / 2 - 1; z += 1.8) {
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.0), windowMat);
+      win.position.set(side * (carWidth / 2 + 0.01), carHeight / 2 + 0.5, z);
+      win.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      group.add(win);
+    }
+  }
+
+  // Door areas (wider windows in the middle and ends)
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x666677, roughness: 0.3, metalness: 0.4 });
+  for (const side of [-1, 1]) {
+    for (const dz of [-carLength / 4, 0, carLength / 4]) {
+      const door = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), doorMat);
+      door.position.set(side * (carWidth / 2 + 0.01), carHeight / 2 - 0.1, dz);
+      door.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      group.add(door);
+    }
+  }
+
+  // Stripe along the side (colored band like NYC subway)
+  const stripeMat = new THREE.MeshStandardMaterial({ color: 0x2255cc, roughness: 0.6 });
+  for (const side of [-1, 1]) {
+    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.25, carLength), stripeMat);
+    stripe.position.set(side * (carWidth / 2 + 0.02), carHeight / 2 + 1.2, 0);
+    stripe.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+    group.add(stripe);
+  }
+
+  // Front face
+  const frontMat = new THREE.MeshStandardMaterial({ color: 0x777788, roughness: 0.4, metalness: 0.3 });
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(carWidth, carHeight), frontMat);
+  front.position.set(0, carHeight / 2 + 0.1, carLength / 2 + 0.01);
+  group.add(front);
+
+  // Front window
+  const frontWin = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.8), windowMat);
+  frontWin.position.set(0, carHeight / 2 + 0.7, carLength / 2 + 0.02);
+  group.add(frontWin);
+
+  // Undercarriage / wheels
+  const underMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
+  const under = new THREE.Mesh(new THREE.BoxGeometry(carWidth - 0.2, 0.3, carLength - 0.5), underMat);
+  under.position.set(0, 0.05, 0);
+  group.add(under);
+
+  // Interior lights (warm glow from windows)
+  const intLight = new THREE.PointLight(0xffeedd, 0.4, 8, 2);
+  intLight.position.set(0, carHeight / 2 + 0.5, 0);
+  group.add(intLight);
+
+  return group;
+}
+
 function setupTrain(scene, subwayGltf) {
   const trainGroup = new THREE.Group();
 
-  if (subwayGltf) {
-    const model = subwayGltf.scene;
-
-    // Hide all non-TrainBody meshes (bar/kitchen interior clutter)
-    model.traverse((child) => {
-      if (child.isMesh) {
-        if (!child.name.startsWith("TrainBody")) {
-          child.visible = false;
-        } else {
-          child.castShadow = true;
-          child.receiveShadow = true;
-        }
-      }
-    });
-
-    // Scale from centimeters to meters
-    model.scale.setScalar(0.01);
-
-    // The train body's Z range at 0.01 scale: ~-7.7 to 7.7 (15.4m long)
-    // Position so front of train is at local Z=0 when stopped
-    model.position.set(0, 0.1, 0);
-
-    trainGroup.add(model);
-  } else {
-    // Fallback: procedural train box if GLB fails
-    const fallbackTrain = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 3.2, 15),
-      new THREE.MeshStandardMaterial({ color: 0x555566, roughness: 0.5 })
-    );
-    fallbackTrain.position.set(0, 1.6, 0);
-    trainGroup.add(fallbackTrain);
-  }
+  // Use a procedural subway car for a clean NYC subway look
+  const proceduralTrain = buildProceduralTrain();
+  trainGroup.add(proceduralTrain);
 
   // Position on tracks, start way off-screen to the left (negative Z)
   trainGroup.position.set(-3, 0, -55);

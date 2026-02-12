@@ -59,9 +59,10 @@ export async function create(chapter, renderer) {
   const playerController = new PlayerController({
     player: playerAnchor,
     camera: city.camera, // Will be updated per phase
-    camDistance: 4.0,
-    camHeight: 2.0,
-    camLookAtHeight: 1.5,
+    moveSpeed: 6.0,
+    camDistance: 6.0,
+    camHeight: 3.0,
+    camLookAtHeight: 2.0,
     initialYaw: 0,
   });
 
@@ -102,14 +103,14 @@ export async function create(chapter, renderer) {
 
         // Building colliders (simplified — road and building fronts)
         playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(-20, 0, -10), new THREE.Vector3(-12, 10, 80)
+          new THREE.Vector3(-40, 0, -20), new THREE.Vector3(-22, 10, 160)
         ));
         playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(12, 0, -10), new THREE.Vector3(20, 10, 80)
+          new THREE.Vector3(22, 0, -20), new THREE.Vector3(40, 10, 160)
         ));
         // Road collider (keep player on sidewalks)
         playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(-4, 0, -10), new THREE.Vector3(4, 10, 80)
+          new THREE.Vector3(-4, 0, -20), new THREE.Vector3(4, 10, 160)
         ));
 
         pp.updateScene(city.scene, city.camera);

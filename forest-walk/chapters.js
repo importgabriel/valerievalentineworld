@@ -72,13 +72,12 @@ export const chapters = [
         easing: "easeOutCubic",
       },
 
-      // Brief hold on the platform
-      { type: "wait", duration: 1.0 },
-      { type: "fade", direction: "in", duration: 1.0 },
+      // Quick transition to city
+      { type: "fade", direction: "in", duration: 0.5 },
 
       // === PHASE 2: CITY FREE-ROAM ===
       { type: "scene_swap", targetPhase: "CITY" },
-      { type: "fade", direction: "out", duration: 1.0 },
+      { type: "fade", direction: "out", duration: 0.5 },
       {
         type: "text_bubble",
         text: "NYC. Summer internship. Just another day.",
@@ -86,12 +85,11 @@ export const chapters = [
         duration: 3.0,
         offsetY: 0.8,
       },
-      { type: "wait", duration: 0.5 },
       {
         type: "free_roam",
         triggerType: "reach_position",
-        targetPosition: { x: 0, y: 0, z: 62 },
-        radius: 4.0,
+        targetPosition: { x: 0, y: 0, z: 125 },
+        radius: 6.0,
       },
 
       // === PHASE 3: ENTER BUILDING ===
