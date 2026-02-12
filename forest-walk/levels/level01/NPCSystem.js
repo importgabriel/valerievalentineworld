@@ -1,8 +1,9 @@
 // ========================================
-// NPC SYSTEM — Low-poly placeholder silhouettes
+// NPC SYSTEM — Low-poly placeholder silhouettes + GLB characters
 // ========================================
 
 import * as THREE from "three";
+import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
 import { MATS } from "./constants.js";
 
 /**
@@ -40,7 +41,7 @@ export function createNPCSilhouette(options = {}) {
 }
 
 /**
- * Instanced walking NPCs for city streets.
+ * Instanced walking NPCs for city streets (fallback).
  * Uses InstancedMesh for performance.
  */
 export class WalkingNPCSystem {
@@ -137,5 +138,179 @@ export class WalkingNPCSystem {
     this.bodyMesh.material.dispose();
     this.headMesh.geometry.dispose();
     this.headMesh.material.dispose();
+  }
+}
+
+// ========================================
+// GLB-BASED NPC SYSTEM — Uses low_poly_people GLB
+// ========================================
+
+const CHARACTER_NAMES = [
+  "casual_Female_G",
+  "casual_Female_K_",
+  "casual_Male_G",
+  "casual_Male_K",
+  "Doctor_Male_B",
+  "elder_Female_A",
+  "little_boy_B",
+  "police_Female_A",
+];
+
+export class GLBNPCSystem {
+  constructor(scene, peopleGltf, options = {}) {
+    this.scene = scene;
+    this.count = options.count || 20;
+    this.bounds = options.bounds || { minZ: -10, maxZ: 80 };
+    this.walkableXRanges = options.walkableXRanges || [[-8, -5], [5, 8]];
+    this.npcs = [];
+
+    this._extractAndPlaceNPCs(peopleGltf);
+  }
+
+  _extractAndPlaceNPCs(gltf) {
+    const rootNode = this._findRootNode(gltf.scene);
+    if (!rootNode) {
+      console.warn("GLBNPCSystem: Could not find RootNode in people GLB, using silhouettes");
+      this._fallbackSilhouettes();
+      return;
+    }
+
+    // Find character template nodes
+    const templates = [];
+    for (const name of CHARACTER_NAMES) {
+      const node = rootNode.children.find((c) => c.name === name);
+      if (node) templates.push(node);
+    }
+
+    if (templates.length === 0) {
+      console.warn("GLBNPCSystem: No character templates found, using silhouettes");
+      this._fallbackSilhouettes();
+      return;
+    }
+
+    // Place NPCs
+    for (let i = 0; i < this.count; i++) {
+      const template = templates[i % templates.length];
+      let npc;
+
+      try {
+        npc = SkeletonUtils.clone(template);
+      } catch (e) {
+        // Fallback to regular clone if SkeletonUtils fails
+        npc = template.clone();
+      }
+
+      // Scale from centimeters to meters
+      npc.scale.setScalar(0.01);
+
+      // Zero out internal position offsets (characters have large cm-scale offsets)
+      npc.position.set(0, 0, 0);
+      npc.traverse((child) => {
+        if (child.name && child.name.startsWith("rig_CharRoot")) {
+          child.position.set(0, 0, 0);
+        }
+      });
+
+      // Enable shadows
+      npc.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      // Random sidewalk position
+      const xRange = this.walkableXRanges[i % this.walkableXRanges.length];
+      const x = xRange[0] + Math.random() * (xRange[1] - xRange[0]);
+      const z =
+        this.bounds.minZ +
+        Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+
+      const npcGroup = new THREE.Group();
+      npcGroup.add(npc);
+      npcGroup.position.set(x, 0, z);
+      npcGroup.rotation.y = Math.random() * Math.PI * 2;
+
+      this.scene.add(npcGroup);
+
+      const isStationary = Math.random() > 0.6; // 40% stand still
+      const direction = i % 2 === 0 ? 1 : -1;
+
+      this.npcs.push({
+        group: npcGroup,
+        speed: isStationary ? 0 : 0.5 + Math.random() * 1.5,
+        direction,
+        isStationary,
+      });
+
+      // Face walking direction
+      if (!isStationary) {
+        npcGroup.rotation.y = direction > 0 ? 0 : Math.PI;
+      }
+    }
+  }
+
+  _findRootNode(scene) {
+    let node = null;
+    scene.traverse((child) => {
+      if (child.name === "RootNode" && child.children.length >= 8) {
+        node = child;
+      }
+    });
+    return node;
+  }
+
+  _fallbackSilhouettes() {
+    // Use simple silhouettes if GLB extraction fails
+    for (let i = 0; i < this.count; i++) {
+      const xRange = this.walkableXRanges[i % this.walkableXRanges.length];
+      const x = xRange[0] + Math.random() * (xRange[1] - xRange[0]);
+      const z =
+        this.bounds.minZ +
+        Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+
+      const npc = createNPCSilhouette({ seated: false });
+      npc.position.set(x, 0, z);
+      npc.rotation.y = Math.random() * Math.PI * 2;
+      this.scene.add(npc);
+
+      this.npcs.push({
+        group: npc,
+        speed: 0.5 + Math.random() * 1.5,
+        direction: i % 2 === 0 ? 1 : -1,
+        isStationary: Math.random() > 0.6,
+      });
+    }
+  }
+
+  update(dt) {
+    for (const npc of this.npcs) {
+      if (npc.isStationary) continue;
+
+      npc.group.position.z += npc.speed * npc.direction * dt;
+
+      // Wrap around
+      if (npc.group.position.z > this.bounds.maxZ) {
+        npc.group.position.z = this.bounds.minZ;
+      }
+      if (npc.group.position.z < this.bounds.minZ) {
+        npc.group.position.z = this.bounds.maxZ;
+      }
+    }
+  }
+
+  dispose() {
+    for (const npc of this.npcs) {
+      this.scene.remove(npc.group);
+      npc.group.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material))
+            obj.material.forEach((m) => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+    }
+    this.npcs = [];
   }
 }

@@ -41,19 +41,39 @@ export const chapters = [
     // Level scene data
     levelModule: "level01-follow-request",
     sequence: [
-      // === PHASE 1: SUBWAY CINEMATIC ===
+      // === PHASE 1: SUBWAY PLATFORM CINEMATIC ===
       { type: "fade", direction: "in", duration: 0.5 },
       { type: "scene_swap", targetPhase: "SUBWAY" },
       { type: "fade", direction: "out", duration: 1.0 },
+
+      // Camera slowly dollies on empty platform, looking into dark tunnel
       {
         type: "camera_move",
-        from: { x: 0, y: 1.6, z: -8 },
-        to: { x: 0, y: 1.6, z: 8 },
-        lookAt: { x: 0, y: 1.5, z: 12 },
-        duration: 5.0,
+        from: { x: 3, y: 1.6, z: 8 },
+        to: { x: 2.5, y: 1.6, z: 4 },
+        lookAt: { x: -3, y: 0.5, z: -30 },
+        duration: 2.0,
         easing: "easeInOutCubic",
       },
-      { type: "wait", duration: 0.5 },
+
+      // Trigger train arrival animation
+      { type: "custom_callback", callbackName: "trainArrive", duration: 0.1 },
+
+      // Hold as train rumbles in and brakes (~4 seconds)
+      { type: "wait", duration: 4.0 },
+
+      // Camera pans to watch the stopped train / character exit area
+      {
+        type: "camera_move",
+        from: { x: 2.5, y: 1.6, z: 4 },
+        to: { x: 1.5, y: 1.5, z: 0 },
+        lookAt: { x: -1.5, y: 1.0, z: 0 },
+        duration: 2.5,
+        easing: "easeOutCubic",
+      },
+
+      // Brief hold on the platform
+      { type: "wait", duration: 1.0 },
       { type: "fade", direction: "in", duration: 1.0 },
 
       // === PHASE 2: CITY FREE-ROAM ===
