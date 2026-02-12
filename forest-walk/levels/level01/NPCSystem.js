@@ -233,12 +233,12 @@ export class GLBNPCSystem {
 
       this.scene.add(npcGroup);
 
-      const isStationary = Math.random() > 0.6; // 40% stand still
+      const isStationary = Math.random() > 0.9; // Only 10% stand still
       const direction = i % 2 === 0 ? 1 : -1;
 
       this.npcs.push({
         group: npcGroup,
-        speed: isStationary ? 0 : 0.5 + Math.random() * 1.5,
+        speed: isStationary ? 0 : 1.5 + Math.random() * 2.5,
         direction,
         isStationary,
       });
@@ -276,9 +276,9 @@ export class GLBNPCSystem {
 
       this.npcs.push({
         group: npc,
-        speed: 0.5 + Math.random() * 1.5,
+        speed: 1.5 + Math.random() * 2.5,
         direction: i % 2 === 0 ? 1 : -1,
-        isStationary: Math.random() > 0.6,
+        isStationary: Math.random() > 0.9,
       });
     }
   }

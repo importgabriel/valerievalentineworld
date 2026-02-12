@@ -114,16 +114,16 @@ export class PlayerController {
 
     if (moveLength > 0) {
       _moveDir.normalize();
-      _moveDir.applyAxisAngle(_upAxis, this.yaw);
+      _moveDir.applyAxisAngle(_upAxis, -this.yaw);
       _moveDir.multiplyScalar(this.cfg.moveSpeed * moveLength);
       this.velocity.lerp(_moveDir, 1 - Math.exp(-this.cfg.moveAccel * dt));
 
       const targetRotation = Math.atan2(this.velocity.x, this.velocity.z);
-      this.player.rotation.y = THREE.MathUtils.lerp(
-        this.player.rotation.y,
-        targetRotation,
-        1 - Math.exp(-this.cfg.turnSpeed * dt)
-      );
+      // Use angle wrapping to prevent spinning through the long way around
+      let angleDiff = targetRotation - this.player.rotation.y;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+      this.player.rotation.y += angleDiff * (1 - Math.exp(-this.cfg.turnSpeed * dt));
       this.isWalking = true;
     } else {
       this.velocity.lerp(_zeroVec, 1 - Math.exp(-this.cfg.moveDecel * dt));

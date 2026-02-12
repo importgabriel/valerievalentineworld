@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { chapters } from "./chapters.js";
 import { buildHallway, updateDoorMarkers, updateHallwayLights, HALLWAY_BOUNDS, DOOR_TRIGGER_RADIUS, getDoorPosition } from "./hub.js";
 import { SceneManager } from "./sceneManager.js";
@@ -81,7 +80,7 @@ const hubCamera = new THREE.PerspectiveCamera(
   55,
   window.innerWidth / window.innerHeight,
   0.1,
-  100
+  200
 );
 
 const { doors, markers, lights } = buildHallway(hubScene, chapters);
@@ -95,17 +94,13 @@ player.position.set(0, 0, 4);
 hubScene.add(player);
 
 const gltfLoader = new GLTFLoader();
-const fbxLoader = new FBXLoader();
 let characterModel = null;
 let mixer = null;
 let walkAction = null;
 let isWalking = false;
 
-Promise.all([
-  gltfLoader.loadAsync("/models/avatar/valerie1.glb"),
-  fbxLoader.loadAsync("/models/animations/Walking.fbx"),
-])
-  .then(([gltf, fbx]) => {
+gltfLoader.loadAsync("/models/avatar/snoopy.glb")
+  .then((gltf) => {
     characterModel = gltf.scene;
     characterModel.scale.setScalar(1.0);
     characterModel.position.y = 0;
@@ -113,15 +108,16 @@ Promise.all([
 
     mixer = new THREE.AnimationMixer(characterModel);
 
-    if (fbx.animations && fbx.animations.length > 0) {
-      const walkClip = fbx.animations[0];
+    // Use embedded animations from the GLB (walk animation)
+    if (gltf.animations && gltf.animations.length > 0) {
+      const walkClip = gltf.animations[0];
       walkAction = mixer.clipAction(walkClip);
       walkAction.setLoop(THREE.LoopRepeat);
       walkAction.timeScale = 1.2;
     }
   })
   .catch((error) => {
-    console.error("Error loading assets:", error);
+    console.error("Error loading avatar:", error);
   });
 
 // Register hub scene with scene manager
@@ -246,14 +242,14 @@ const playerVelocity = new THREE.Vector3();
 let cameraYaw = 0;
 let cameraPitch = 0.3;
 
-const MOVE_SPEED = 4.0;
+const MOVE_SPEED = 6.0;
 const MOVE_ACCEL = 15.0;
 const MOVE_DECEL = 10.0;
 const TURN_SPEED = 8.0;
 
-const CAM_DISTANCE = 5.0;
-const CAM_HEIGHT = 2.0;
-const CAM_LOOKAT_HEIGHT = 1.5;
+const CAM_DISTANCE = 7.0;
+const CAM_HEIGHT = 3.0;
+const CAM_LOOKAT_HEIGHT = 2.0;
 const CAM_SMOOTHING = 10.0;
 const CAM_STICK_SENSITIVITY = 3.0;
 
@@ -666,14 +662,14 @@ function update(dt) {
     const wt = elapsedTime * 0.12;
     hubCamera.position.set(
       Math.sin(wt * 0.3) * 0.5,
-      2.2,
+      3.0,
       3 + wt * 3
     );
-    hubCamera.lookAt(0, 2, hubCamera.position.z + 8);
+    hubCamera.lookAt(0, 2.5, hubCamera.position.z + 10);
 
     // Loop the camera position to create endless hallway feel
-    if (hubCamera.position.z > 70) {
-      elapsedTime -= 70 / (0.12 * 3);
+    if (hubCamera.position.z > 140) {
+      elapsedTime -= 140 / (0.12 * 3);
     }
     return;
   }
@@ -691,9 +687,9 @@ function update(dt) {
     if (active && active.handleInput) {
       const gp = getGamepadInput();
       let inputX = gp.moveX;
-      let inputZ = gp.moveY;
-      if (keys.KeyW || keys.ArrowUp) inputZ -= 1;
-      if (keys.KeyS || keys.ArrowDown) inputZ += 1;
+      let inputZ = -gp.moveY;
+      if (keys.KeyW || keys.ArrowUp) inputZ += 1;
+      if (keys.KeyS || keys.ArrowDown) inputZ -= 1;
       if (keys.KeyA || keys.ArrowLeft) inputX -= 1;
       if (keys.KeyD || keys.ArrowRight) inputX += 1;
       active.handleInput({ inputX, inputZ, lookX: gp.lookX, lookY: gp.lookY }, dt);
@@ -721,10 +717,10 @@ function update(dt) {
   const gp = getGamepadInput();
 
   let inputX = gp.moveX;
-  let inputZ = gp.moveY;
+  let inputZ = -gp.moveY;
 
-  if (keys.KeyW || keys.ArrowUp) inputZ -= 1;
-  if (keys.KeyS || keys.ArrowDown) inputZ += 1;
+  if (keys.KeyW || keys.ArrowUp) inputZ += 1;
+  if (keys.KeyS || keys.ArrowDown) inputZ -= 1;
   if (keys.KeyA || keys.ArrowLeft) inputX -= 1;
   if (keys.KeyD || keys.ArrowRight) inputX += 1;
 
@@ -748,7 +744,7 @@ function update(dt) {
 
   if (moveLength > 0) {
     _moveDir.normalize();
-    _moveDir.applyAxisAngle(_upAxis, cameraYaw);
+    _moveDir.applyAxisAngle(_upAxis, -cameraYaw);
     _moveDir.multiplyScalar(MOVE_SPEED * moveLength);
     playerVelocity.lerp(_moveDir, 1 - Math.exp(-MOVE_ACCEL * dt));
 
@@ -756,11 +752,11 @@ function update(dt) {
       playerVelocity.x,
       playerVelocity.z
     );
-    player.rotation.y = THREE.MathUtils.lerp(
-      player.rotation.y,
-      targetRotation,
-      1 - Math.exp(-TURN_SPEED * dt)
-    );
+    // Use angle wrapping to prevent spinning through the long way around
+    let angleDiff = targetRotation - player.rotation.y;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+    player.rotation.y += angleDiff * (1 - Math.exp(-TURN_SPEED * dt));
 
     isWalking = true;
   } else {

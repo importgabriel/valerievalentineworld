@@ -6,12 +6,12 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 // ========================================
 
 const HALL = {
-  width: 6,
-  height: 4,
-  length: 90,
-  doorSpacing: 6,
-  doorStartZ: 8,
-  carpetWidth: 3,
+  width: 8,
+  height: 5,
+  length: 160,
+  doorSpacing: 10,
+  doorStartZ: 12,
+  carpetWidth: 4,
 };
 
 // Color palette
@@ -524,12 +524,12 @@ function createLighting(scene) {
   scene.add(ambient);
 
   // Two moving point lights (repositioned near player each frame)
-  const hallLight1 = new THREE.PointLight(0xffd700, 0.8, 15, 1.5);
-  hallLight1.position.set(0, 3.2, 10);
+  const hallLight1 = new THREE.PointLight(0xffd700, 1.0, 25, 1.5);
+  hallLight1.position.set(0, 4.0, 10);
   scene.add(hallLight1);
 
-  const hallLight2 = new THREE.PointLight(0xffd700, 0.6, 15, 1.5);
-  hallLight2.position.set(0, 3.2, 22);
+  const hallLight2 = new THREE.PointLight(0xffd700, 0.8, 25, 1.5);
+  hallLight2.position.set(0, 4.0, 22);
   scene.add(hallLight2);
 
   // A subtle warm directional for overall shape
@@ -547,7 +547,7 @@ function createLighting(scene) {
 export function buildHallway(scene, chapters) {
   // Scene settings
   scene.background = new THREE.Color(0x0a0a0a);
-  scene.fog = new THREE.Fog(C.fog, 30, 55);
+  scene.fog = new THREE.Fog(C.fog, 50, 100);
 
   createHallwayStructure(scene);
   const doors = createDoors(scene, chapters);

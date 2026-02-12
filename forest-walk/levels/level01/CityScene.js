@@ -9,20 +9,20 @@ import { createSkyBackdrop } from "../levelUtils.js";
 import { GLBNPCSystem } from "./NPCSystem.js";
 
 // JPMorgan entrance position (used for trigger)
-export const JPMORGAN_ENTRANCE = new THREE.Vector3(0, 0, 65);
+export const JPMORGAN_ENTRANCE = new THREE.Vector3(0, 0, 130);
 
 // City bounds for player movement
 export const CITY_BOUNDS = {
-  minX: -10,
-  maxX: 10,
-  minZ: -5,
-  maxZ: 70,
+  minX: -20,
+  maxX: 20,
+  minZ: -10,
+  maxZ: 140,
 };
 
 export function buildCityScene(cityGltf, peopleGltf) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xddeeff);
-  scene.fog = new THREE.Fog(0xddeeff, 60, 120);
+  scene.fog = new THREE.Fog(0xddeeff, 100, 250);
 
   const camera = new THREE.PerspectiveCamera(
     55,
@@ -43,11 +43,13 @@ export function buildCityScene(cityGltf, peopleGltf) {
   let npcSystem = null;
   if (peopleGltf) {
     npcSystem = new GLBNPCSystem(scene, peopleGltf, {
-      count: 20,
-      bounds: { minZ: -5, maxZ: 65 },
+      count: 40,
+      bounds: { minZ: -10, maxZ: 130 },
       walkableXRanges: [
+        [-18, -12],
         [-9, -5],
         [5, 9],
+        [12, 18],
       ],
     });
   }
@@ -106,13 +108,10 @@ function setupCityModel(scene, cityGltf) {
 
   // The lowpoly.glb bounding box is ~17x5.4x9.3 units at base scale.
   // At 8x scale: ~136x43x74 units — close to our city bounds.
-  cityModel.scale.setScalar(8);
+  cityModel.scale.setScalar(16);
 
-  // Position so the city is centered on our walking corridor (Z: -5 to 70)
-  // The model's Z range at base scale is about -8.2 to 1.1 (9.3 units),
-  // At 8x that's -65.6 to 8.8. We want the city centered around Z=30.
-  // Offset Z: 30 - (-65.6 + 8.8) / 2 = 30 - (-28.4) = 30 + 28.4 ≈ 58
-  cityModel.position.set(-4, 0, 55);
+  // Position so the city is centered on our walking corridor (Z: -10 to 140)
+  cityModel.position.set(-8, 0, 110);
 
   // Rotate to align the longest axis with the walking direction (Z)
   cityModel.rotation.y = Math.PI / 2;
@@ -129,11 +128,11 @@ function setupCityModel(scene, cityGltf) {
 
   // Add a ground plane that extends beyond the model
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 150),
+    new THREE.PlaneGeometry(200, 300),
     MATS.sidewalk
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set(0, -0.05, 35);
+  ground.position.set(0, -0.05, 70);
   ground.receiveShadow = true;
   scene.add(ground);
 }
@@ -141,18 +140,18 @@ function setupCityModel(scene, cityGltf) {
 function buildFallbackGround(scene) {
   // Simple ground if city GLB isn't available
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(30, 100),
+    new THREE.PlaneGeometry(60, 200),
     MATS.sidewalk
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.position.set(0, 0, 35);
+  ground.position.set(0, 0, 70);
   ground.receiveShadow = true;
   scene.add(ground);
 
   // Road
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(8, 90), MATS.road);
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(8, 180), MATS.road);
   road.rotation.x = -Math.PI / 2;
-  road.position.set(0, -0.02, 35);
+  road.position.set(0, -0.02, 70);
   road.receiveShadow = true;
   scene.add(road);
 }
@@ -166,7 +165,7 @@ function buildJPMorganBuilding(scene) {
     w = 14,
     d = 14;
   const x = 0,
-    z = 72;
+    z = 137;
 
   const building = new THREE.Mesh(
     new THREE.BoxGeometry(w, h, d),
@@ -371,7 +370,7 @@ function buildStreetElements(scene) {
   const poleMat = MATS.lampPost;
   const lampPositions = [];
 
-  for (let z = 0; z < 70; z += 15) {
+  for (let z = 0; z < 140; z += 15) {
     lampPositions.push([-5, z]);
     lampPositions.push([5, z]);
   }
@@ -409,7 +408,7 @@ function buildStreetElements(scene) {
 
   // Traffic lights
   const tlGeos = [];
-  for (const z of [0, 30, 60]) {
+  for (const z of [0, 30, 60, 90, 120]) {
     for (const x of [-4, 4]) {
       const pole = new THREE.BoxGeometry(0.1, 4, 0.1);
       pole.translate(x, 2, z);
@@ -437,15 +436,15 @@ function buildStreetElements(scene) {
 function addLighting(scene) {
   // Warm afternoon sun
   const sunLight = new THREE.DirectionalLight(PALETTE.warmLight, 0.8);
-  sunLight.position.set(20, 40, 30);
+  sunLight.position.set(30, 60, 60);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(2048, 2048);
-  sunLight.shadow.camera.left = -50;
-  sunLight.shadow.camera.right = 50;
-  sunLight.shadow.camera.top = 50;
-  sunLight.shadow.camera.bottom = -10;
+  sunLight.shadow.camera.left = -80;
+  sunLight.shadow.camera.right = 80;
+  sunLight.shadow.camera.top = 80;
+  sunLight.shadow.camera.bottom = -20;
   sunLight.shadow.camera.near = 1;
-  sunLight.shadow.camera.far = 100;
+  sunLight.shadow.camera.far = 200;
   sunLight.shadow.bias = -0.001;
   scene.add(sunLight);
 
@@ -474,9 +473,9 @@ function addSkyBackdrop(scene) {
       [0.95, "#ffcc88"],
       [1, "#ff9944"],
     ],
-    300,
-    150
+    500,
+    250
   );
-  sky.position.set(0, 40, 100);
+  sky.position.set(0, 60, 200);
   scene.add(sky);
 }
