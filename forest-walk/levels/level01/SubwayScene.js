@@ -30,8 +30,8 @@ const TRAIN_STOP_Z = 0;
 
 export function buildSubwayScene(subwayGltf) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(PALETTE.tunnelDark);
-  scene.fog = new THREE.FogExp2(PALETTE.tunnelDark, 0.025);
+  scene.background = new THREE.Color(0x1a1a28);
+  scene.fog = new THREE.FogExp2(0x1a1a28, 0.012);
 
   const camera = new THREE.PerspectiveCamera(
     50,
@@ -480,50 +480,56 @@ function setupTrain(scene, subwayGltf) {
 // ========================================
 
 function addLighting(scene, trainGroup) {
-  // Dim underground ambient
-  const ambient = new THREE.AmbientLight(0x333344, 0.25);
+  // Brighter underground ambient so the scene is clearly visible
+  const ambient = new THREE.AmbientLight(0x667788, 0.6);
   scene.add(ambient);
 
-  // Warm fluorescent platform lights
+  // Warm fluorescent platform lights — brighter and more of them
   const platX = 4;
-  for (let z = -15; z <= 15; z += 5) {
-    const light = new THREE.PointLight(PALETTE.warmLight, 0.5, 12, 2);
+  for (let z = -18; z <= 18; z += 3) {
+    const light = new THREE.PointLight(PALETTE.warmLight, 1.0, 16, 1.5);
     light.position.set(platX, 3.5, z);
     scene.add(light);
 
-    // Light fixture visual
-    const fixtureGeo = new THREE.BoxGeometry(0.6, 0.05, 0.15);
+    // Light fixture visual — glowing fluorescent tubes
+    const fixtureGeo = new THREE.BoxGeometry(0.8, 0.06, 0.2);
     const fixtureMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: PALETTE.warmLight,
-      emissiveIntensity: 0.8,
+      emissiveIntensity: 1.0,
     });
     const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
     fixture.position.set(platX, 3.78, z);
     scene.add(fixture);
   }
 
+  // Additional fill lights along the track side for visibility
+  for (let z = -15; z <= 15; z += 10) {
+    const fillLight = new THREE.PointLight(0xaabbcc, 0.4, 12, 2);
+    fillLight.position.set(0, 3.0, z);
+    scene.add(fillLight);
+  }
+
   // Train headlight — attached to the train so it moves with it
   const headlight = new THREE.SpotLight(
     0xffffcc,
-    3.0,
+    4.0,
     80,
-    Math.PI / 8,
-    0.5,
-    1.5
+    Math.PI / 6,
+    0.4,
+    1.2
   );
-  // Position at local front of train (Z direction)
   headlight.position.set(0, 1.5, 8);
   headlight.target.position.set(0, 0.5, 20);
   trainGroup.add(headlight);
   trainGroup.add(headlight.target);
 
   // Secondary red tail light glow
-  const taillight = new THREE.PointLight(0xff3333, 0.5, 8);
+  const taillight = new THREE.PointLight(0xff3333, 0.6, 10);
   taillight.position.set(0, 1.5, -8);
   trainGroup.add(taillight);
 
-  // Hemisphere for subtle color contrast
-  const hemi = new THREE.HemisphereLight(0x222244, 0x111111, 0.15);
+  // Hemisphere for natural color contrast — much brighter
+  const hemi = new THREE.HemisphereLight(0x556688, 0x332211, 0.5);
   scene.add(hemi);
 }

@@ -142,6 +142,11 @@ export async function create(chapter, renderer) {
     // Player anchor for character model placement
     playerAnchor,
 
+    // Pass walk animation from main.js so PlayerController can play it
+    setWalkAction(action) {
+      playerController.setWalkAction(action);
+    },
+
     // Custom render with postprocessing
     render() {
       pp.composer.render();
@@ -193,7 +198,6 @@ export async function create(chapter, renderer) {
 
     // Interaction management (called by InteractionBeat)
     enableInteraction(targetId, promptText, onComplete) {
-      // Add a one-shot interaction trigger
       const point = INTERACTION_POINTS[targetId];
       if (point) {
         interactions.addTrigger({
@@ -221,6 +225,15 @@ export async function create(chapter, renderer) {
           if (action === "show") phoneUI.show();
           else phoneUI.hide();
           break;
+        case "mini-phone":
+          if (action === "show") {
+            const miniPhone = document.getElementById("mini-phone-notification");
+            if (miniPhone) miniPhone.classList.remove("hidden");
+          } else {
+            const miniPhone = document.getElementById("mini-phone-notification");
+            if (miniPhone) miniPhone.classList.add("hidden");
+          }
+          break;
       }
     },
 
@@ -231,27 +244,62 @@ export async function create(chapter, renderer) {
       },
 
       trainArrive(ctx) {
-        // Trigger the train arrival state machine in the subway scene
         if (subway.startTrainArrival) {
           subway.startTrainArrival();
         }
       },
 
       sitDown(ctx) {
-        // Teleport player to chair position
         playerAnchor.position.copy(INTERACTION_POINTS.chair);
         playerAnchor.rotation.y = Math.PI * 0.7;
         playerController.disable();
 
-        // Zoom camera to desk view
         if (office.camera) {
           office.camera.position.set(1.5, 1.6, -1.5);
           office.camera.lookAt(0, 1.0, 0.5);
         }
       },
 
+      startWorking(ctx) {
+        // Show computer screen with typing animation
+        computerScreen.show();
+      },
+
+      stopWorking(ctx) {
+        // Hide computer screen
+        computerScreen.hide();
+      },
+
+      showMiniPhone(ctx) {
+        // Show mini phone notification in top-right
+        const miniPhone = document.getElementById("mini-phone-notification");
+        if (miniPhone) miniPhone.classList.remove("hidden");
+
+        // Make the phone on desk glow
+        if (office.phoneMesh) {
+          office.phoneMesh.material = new THREE.MeshStandardMaterial({
+            color: 0x1a1a1a,
+            emissive: 0x224488,
+            emissiveIntensity: 0.5,
+            roughness: 0.1,
+            metalness: 0.3,
+          });
+        }
+      },
+
+      hideMiniPhone(ctx) {
+        const miniPhone = document.getElementById("mini-phone-notification");
+        if (miniPhone) miniPhone.classList.add("hidden");
+      },
+
+      checkPhone(ctx) {
+        // Hide mini notification, show full phone UI
+        const miniPhone = document.getElementById("mini-phone-notification");
+        if (miniPhone) miniPhone.classList.add("hidden");
+        phoneUI.show();
+      },
+
       phoneBuzz(ctx) {
-        // Visual phone buzz effect
         if (office.phoneMesh) {
           office.phoneMesh.material = new THREE.MeshStandardMaterial({
             color: 0x1a1a1a,
@@ -264,7 +312,6 @@ export async function create(chapter, renderer) {
       },
 
       cameraToChoice(ctx) {
-        // Pull camera back for choice panel
         if (office.camera) {
           office.camera.position.set(2.5, 1.8, -2.0);
           office.camera.lookAt(0.3, 1.5, -0.3);
@@ -281,6 +328,9 @@ export async function create(chapter, renderer) {
       city.dispose();
       office.dispose();
       pp.dispose();
+      // Clean up mini phone notification
+      const miniPhone = document.getElementById("mini-phone-notification");
+      if (miniPhone) miniPhone.classList.add("hidden");
     },
   };
 

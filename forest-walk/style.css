@@ -1088,3 +1088,67 @@ canvas { display: block; }
   transform: translateY(4px);
   box-shadow: 0 0px 0 #4a0e0e;
 }
+
+/* ============================================
+   MINI PHONE NOTIFICATION (top-right corner)
+   ============================================ */
+#mini-phone-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 20, 30, 0.92);
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 2px solid rgba(100, 140, 255, 0.5);
+  box-shadow: 0 0 20px rgba(100, 140, 255, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: miniPhoneSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+@keyframes miniPhoneSlideIn {
+  from { opacity: 0; transform: translateX(60px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.mini-phone-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  background: #ff3b30;
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 800;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: badgePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.mini-phone-text {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+}

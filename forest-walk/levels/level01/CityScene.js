@@ -39,26 +39,30 @@ export function buildCityScene(cityGltf, peopleGltf) {
   buildSubwayExit(scene);
   buildStreetElements(scene);
 
-  // NPC system using GLB people pack
+  // NPC system using GLB people pack — walkable ranges closer to player path
   let npcSystem = null;
   if (peopleGltf) {
     npcSystem = new GLBNPCSystem(scene, peopleGltf, {
       count: 40,
-      bounds: { minZ: -10, maxZ: 130 },
+      bounds: { minZ: -5, maxZ: 125 },
       walkableXRanges: [
-        [-18, -12],
-        [-9, -5],
-        [5, 9],
-        [12, 18],
+        [-12, -8],
+        [-7, -5],
+        [5, 7],
+        [8, 12],
       ],
     });
   }
+
+  // Navigation waypoint — floating marker above JPMorgan entrance
+  const waypointGroup = buildNavigationWaypoint(scene);
 
   const { sunLight } = addLighting(scene);
   addSkyBackdrop(scene);
 
   // Freeze static shadows after first frame
   let shadowFrozen = false;
+  let waypointTime = 0;
 
   return {
     scene,
@@ -68,6 +72,13 @@ export function buildCityScene(cityGltf, peopleGltf) {
 
     update(dt) {
       if (npcSystem) npcSystem.update(dt);
+
+      // Animate waypoint
+      waypointTime += dt;
+      if (waypointGroup) {
+        waypointGroup.position.y = 8 + Math.sin(waypointTime * 2) * 0.5;
+        waypointGroup.rotation.y = waypointTime * 0.8;
+      }
 
       // Freeze static shadow map after first render
       if (!shadowFrozen) {
@@ -427,6 +438,85 @@ function buildStreetElements(scene) {
     scene.add(new THREE.Mesh(mergeGeometries(tlGeos), tlMat));
     tlGeos.forEach((g) => g.dispose());
   }
+}
+
+// ========================================
+// NAVIGATION WAYPOINT — floating diamond marker above JPMorgan
+// ========================================
+
+function buildNavigationWaypoint(scene) {
+  const group = new THREE.Group();
+  const entranceZ = 130;
+
+  // Floating diamond marker
+  const diamondGeo = new THREE.OctahedronGeometry(1.2, 0);
+  const diamondMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.sunGold,
+    emissive: PALETTE.sunGold,
+    emissiveIntensity: 0.8,
+    transparent: true,
+    opacity: 0.85,
+  });
+  const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+  group.add(diamond);
+
+  // Vertical light beam below the diamond
+  const beamGeo = new THREE.CylinderGeometry(0.15, 0.5, 8, 8);
+  const beamMat = new THREE.MeshStandardMaterial({
+    color: PALETTE.sunGold,
+    emissive: PALETTE.sunGold,
+    emissiveIntensity: 0.5,
+    transparent: true,
+    opacity: 0.25,
+  });
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.y = -5;
+  group.add(beam);
+
+  // Point light for glow
+  const glow = new THREE.PointLight(PALETTE.sunGold, 1.5, 30, 2);
+  glow.position.y = 0;
+  group.add(glow);
+
+  // "JPMORGAN" label sprite floating above
+  const labelCanvas = document.createElement("canvas");
+  labelCanvas.width = 512;
+  labelCanvas.height = 128;
+  const ctx = labelCanvas.getContext("2d");
+  ctx.fillStyle = "rgba(0,51,102,0.8)";
+  ctx.beginPath();
+  // Compatible rounded rect
+  const rx = 16, ry = 16, rw = 480, rh = 96, rr = 16;
+  ctx.moveTo(rx + rr, ry);
+  ctx.lineTo(rx + rw - rr, ry);
+  ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rr);
+  ctx.lineTo(rx + rw, ry + rh - rr);
+  ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rr, ry + rh);
+  ctx.lineTo(rx + rr, ry + rh);
+  ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rr);
+  ctx.lineTo(rx, ry + rr);
+  ctx.quadraticCurveTo(rx, ry, rx + rr, ry);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 44px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("JPMORGAN", 256, 50);
+  ctx.font = "24px Arial, sans-serif";
+  ctx.fillStyle = "#ffdd88";
+  ctx.fillText("Walk here", 256, 84);
+
+  const labelTex = new THREE.CanvasTexture(labelCanvas);
+  const labelMat = new THREE.SpriteMaterial({ map: labelTex, transparent: true });
+  const label = new THREE.Sprite(labelMat);
+  label.position.y = 2.5;
+  label.scale.set(6, 1.5, 1);
+  group.add(label);
+
+  group.position.set(0, 8, entranceZ);
+  scene.add(group);
+  return group;
 }
 
 // ========================================

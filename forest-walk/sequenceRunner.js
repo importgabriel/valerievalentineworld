@@ -459,6 +459,47 @@ class CustomCallbackBeat {
   finish() {}
 }
 
+// ========================================
+// KEY PROMPT BEAT — Show prompt, wait for key press
+// ========================================
+
+class KeyPromptBeat {
+  constructor(data) {
+    this.key = data.key || "A"; // "A" or "B"
+    this.promptText = data.promptText || `Press ${this.key}`;
+    this.triggered = false;
+  }
+
+  start(ctx) {
+    this.triggered = false;
+    // Enable key listening in the game state
+    if (ctx.setGameState) ctx.setGameState("level_sequence");
+
+    // Show the interaction prompt
+    const promptEl = document.getElementById("interaction-prompt");
+    const promptTextEl = document.getElementById("prompt-text");
+    const promptKeyEl = promptEl ? promptEl.querySelector(".prompt-key") : null;
+    if (promptEl) promptEl.classList.remove("hidden");
+    if (promptTextEl) promptTextEl.textContent = this.promptText;
+    if (promptKeyEl) promptKeyEl.textContent = this.key;
+  }
+
+  update() {
+    return this.triggered;
+  }
+
+  finish() {
+    const promptEl = document.getElementById("interaction-prompt");
+    if (promptEl) promptEl.classList.add("hidden");
+  }
+
+  onSignal(eventName) {
+    if (eventName === `key_${this.key.toLowerCase()}`) {
+      this.triggered = true;
+    }
+  }
+}
+
 class ShowStoryBeat {
   constructor() {
     this.waiting = true;
@@ -614,6 +655,7 @@ export class SequenceRunner {
       case "interaction": return new InteractionBeat(data);
       case "overlay": return new OverlayBeat(data);
       case "custom_callback": return new CustomCallbackBeat(data);
+      case "key_prompt": return new KeyPromptBeat(data);
       default:
         console.warn("Unknown beat type:", data.type);
         return new WaitBeat({ duration: 0 });
