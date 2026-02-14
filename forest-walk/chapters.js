@@ -150,7 +150,6 @@ export const chapters = [
         offsetY: 0.5,
       },
       { type: "wait", duration: 1.0 },
-      { type: "overlay", overlayId: "phone-screen", action: "hide" },
       {
         type: "reaction",
         kind: "surprise",
@@ -158,7 +157,7 @@ export const chapters = [
       },
       { type: "custom_callback", callbackName: "cameraToChoice", duration: 1.0 },
 
-      // === PHASE 7: CHOICE ===
+      // === PHASE 7: CHOICE (phone stays visible behind choice panel) ===
       { type: "show_choice" },
     ],
   },

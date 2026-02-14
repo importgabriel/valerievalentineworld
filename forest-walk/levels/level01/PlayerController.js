@@ -1,6 +1,8 @@
 // ========================================
 // PLAYER CONTROLLER — Free-roam movement for levels
 // ========================================
+// Handles movement, camera follow, AABB collision,
+// ground raycasting, jumping, and animation management.
 
 import * as THREE from "three";
 
@@ -10,6 +12,8 @@ const _zeroVec = new THREE.Vector3();
 const _camTarget = new THREE.Vector3();
 const _lookTarget = new THREE.Vector3();
 const _velDelta = new THREE.Vector3();
+const _rayOrigin = new THREE.Vector3();
+const _rayDown = new THREE.Vector3(0, -1, 0);
 
 const DEFAULTS = {
   moveSpeed: 4.0,
@@ -45,6 +49,25 @@ export class PlayerController {
     this.pitch = config.initialPitch || 0.3;
     this.isWalking = false;
     this.enabled = false;
+
+    // Ground following (raycasting)
+    this.groundRaycaster = new THREE.Raycaster();
+    this.groundRaycaster.far = 50;
+    this.groundMeshes = [];
+    this.groundOffset = 0;
+    this.currentGroundY = 0;
+    this.groundSmoothing = 10.0;
+
+    // Jump physics
+    this.jumpVelocity = 0;
+    this.isGrounded = true;
+    this.gravity = -15.0;
+    this.jumpStrength = 6.0;
+
+    // Animation management
+    this.animations = {};
+    this.currentAnimation = null;
+    this.currentAnimationName = '';
   }
 
   enable() {
@@ -80,6 +103,58 @@ export class PlayerController {
     this.colliders.length = 0;
   }
 
+  // Ground mesh management
+  setGroundMeshes(meshes) {
+    this.groundMeshes = meshes;
+  }
+
+  addGroundMesh(mesh) {
+    this.groundMeshes.push(mesh);
+  }
+
+  clearGroundMeshes() {
+    this.groundMeshes.length = 0;
+  }
+
+  // Jump
+  jump() {
+    if (!this.enabled || !this.isGrounded) return;
+    this.jumpVelocity = this.jumpStrength;
+    this.isGrounded = false;
+  }
+
+  // Animation management
+  registerAnimation(name, action) {
+    this.animations[name] = action;
+  }
+
+  playAnimation(name, { fadeDuration = 0.3, loop = true } = {}) {
+    if (name === this.currentAnimationName) return;
+    const newAction = this.animations[name];
+    if (!newAction) return;
+
+    if (this.currentAnimation) {
+      this.currentAnimation.fadeOut(fadeDuration);
+    }
+
+    newAction.reset();
+    newAction.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce);
+    newAction.clampWhenFinished = !loop;
+    newAction.fadeIn(fadeDuration);
+    newAction.play();
+
+    this.currentAnimation = newAction;
+    this.currentAnimationName = name;
+  }
+
+  stopAnimation(fadeDuration = 0.3) {
+    if (this.currentAnimation) {
+      this.currentAnimation.fadeOut(fadeDuration);
+      this.currentAnimation = null;
+      this.currentAnimationName = '';
+    }
+  }
+
   handleMouseLook(dx, dy) {
     if (!this.enabled) return;
     this.yaw -= dx * this.cfg.mouseSensitivity;
@@ -89,6 +164,47 @@ export class PlayerController {
     );
     if (this.cfg.yawClamp) {
       this.yaw = THREE.MathUtils.clamp(this.yaw, this.cfg.yawClamp[0], this.cfg.yawClamp[1]);
+    }
+  }
+
+  /**
+   * Ground raycasting + jump physics
+   */
+  _updateGroundHeight(dt) {
+    // Apply gravity when airborne
+    if (!this.isGrounded) {
+      this.jumpVelocity += this.gravity * dt;
+      this.player.position.y += this.jumpVelocity * dt;
+    }
+
+    // Find ground height via raycast
+    let groundY = this.currentGroundY;
+    if (this.groundMeshes.length > 0) {
+      _rayOrigin.copy(this.player.position);
+      _rayOrigin.y += 10;
+      this.groundRaycaster.set(_rayOrigin, _rayDown);
+      const hits = this.groundRaycaster.intersectObjects(this.groundMeshes, true);
+      if (hits.length > 0) {
+        groundY = hits[0].point.y + this.groundOffset;
+      }
+    }
+
+    // Landing check when falling
+    if (!this.isGrounded && this.player.position.y <= groundY) {
+      this.player.position.y = groundY;
+      this.jumpVelocity = 0;
+      this.isGrounded = true;
+      this.currentGroundY = groundY;
+    } else if (this.isGrounded) {
+      // Smooth ground following when grounded (handles uneven terrain)
+      if (this.groundMeshes.length > 0) {
+        this.currentGroundY = THREE.MathUtils.lerp(
+          this.currentGroundY,
+          groundY,
+          1 - Math.exp(-this.groundSmoothing * dt)
+        );
+        this.player.position.y = this.currentGroundY;
+      }
     }
   }
 
@@ -180,6 +296,9 @@ export class PlayerController {
         this.player.position.z, this.bounds.minZ, this.bounds.maxZ
       );
     }
+
+    // Ground following + jump physics
+    this._updateGroundHeight(dt);
 
     // Camera follow
     const camX = Math.sin(this.yaw) * Math.cos(this.pitch) * this.cfg.camDistance;
