@@ -223,14 +223,14 @@ window.addEventListener("gamepadconnected", () => {
   gamepadConnected = true;
   if (hudControls) {
     hudControls.textContent =
-      "Left Stick: move \u2022 Right Stick: look \u2022 A: interact";
+      "Left Stick: move \u2022 Right Stick: look \u2022 A: interact \u2022 X: jump";
   }
 });
 
 window.addEventListener("gamepaddisconnected", () => {
   gamepadConnected = false;
   if (hudControls) {
-    hudControls.textContent = "WASD to move \u2022 Mouse to look";
+    hudControls.textContent = "WASD to move \u2022 Mouse to look \u2022 Space: jump \u2022 Enter: interact";
   }
 });
 
@@ -345,6 +345,10 @@ function continueAfterCorrectChoice() {
   // If we were in a level scene, clean up
   if (sceneManager.isInLevel()) {
     sequenceRunner.stop();
+
+    // Hide phone overlay if still visible
+    const phoneOverlay = document.getElementById("phone-overlay");
+    if (phoneOverlay) phoneOverlay.classList.add("hidden");
 
     // Move character back to hub
     if (characterModel) {
@@ -531,6 +535,11 @@ async function enterLevel(chapterIndex) {
       levelScene.setWalkAction(walkAction);
     }
 
+    // Register walk animation for animation management system
+    if (walkAction && levelScene.registerAnimation) {
+      levelScene.registerAnimation('walk', walkAction);
+    }
+
     // Start the narrative sequence
     gameState = "level_sequence";
 
@@ -575,12 +584,27 @@ retryBtn.addEventListener("click", retryChapter);
 continueBtn.addEventListener("click", continueAfterCorrectChoice);
 
 window.addEventListener("keydown", (e) => {
-  if (e.code === "Space" || e.code === "Enter") {
+  // Space = jump (in free-roam), otherwise advance UI
+  if (e.code === "Space") {
+    if (gameState === "level_freeroam") {
+      const active = sceneManager.getActiveScene();
+      if (active && active.jump) active.jump();
+    } else if (gameState === "level_sequence") {
+      sequenceRunner.signal("key_a");
+    } else if (gameState === "in_zone") {
+      hideStoryPanel();
+      showChoicePanel(currentChapterIndex);
+    } else if (gameState === "choice") {
+      const btns = choiceOptions.querySelectorAll(".choice-btn");
+      if (btns[selectedChoiceIndex]) btns[selectedChoiceIndex].click();
+    }
+  }
+  // Enter = interact (in free-roam), otherwise advance UI
+  if (e.code === "Enter") {
     if (gameState === "level_freeroam") {
       const active = sceneManager.getActiveScene();
       if (active && active.tryInteract) active.tryInteract();
     } else if (gameState === "level_sequence") {
-      // Signal A key to sequence runner for key_prompt beats
       sequenceRunner.signal("key_a");
     } else if (gameState === "in_zone") {
       hideStoryPanel();
@@ -646,6 +670,14 @@ function handleGamepadButtons() {
   if (buttonJustPressed(1)) {
     if (gameState === "level_sequence") {
       sequenceRunner.signal("key_b");
+    }
+  }
+
+  // X button (gamepad button 2) — jump
+  if (buttonJustPressed(2)) {
+    if (gameState === "level_freeroam") {
+      const active = sceneManager.getActiveScene();
+      if (active && active.jump) active.jump();
     }
   }
 

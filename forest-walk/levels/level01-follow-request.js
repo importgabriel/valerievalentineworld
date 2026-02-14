@@ -68,9 +68,9 @@ export async function create(chapter, renderer) {
     player: playerAnchor,
     camera: city.camera, // Will be updated per phase
     moveSpeed: 6.0,
-    camDistance: 8.0,
-    camHeight: 5.0,
-    camLookAtHeight: 3.5,
+    camDistance: 6.0,
+    camHeight: 3.0,
+    camLookAtHeight: 2.0,
     initialYaw: 0,
   });
 
@@ -91,6 +91,7 @@ export async function create(chapter, renderer) {
     interactions.dispose();
     playerController.disable();
     playerController.clearColliders();
+    playerController.clearGroundMeshes();
 
     currentPhase = phase;
 
@@ -146,6 +147,33 @@ export async function create(chapter, renderer) {
           new THREE.Vector3(-7, 0, 130), new THREE.Vector3(7, 60, 144)
         ));
 
+        // Auto-generate colliders from city GLB model (buildings, trees, etc.)
+        if (city.cityModel) {
+          const _tempBox = new THREE.Box3();
+          const _tempSize = new THREE.Vector3();
+          city.cityModel.traverse((child) => {
+            if (!child.isMesh) return;
+            _tempBox.setFromObject(child);
+            _tempBox.getSize(_tempSize);
+            // Skip tiny objects, ground planes, and overly large objects
+            if (_tempSize.y < 0.5 || _tempSize.x > 80 || _tempSize.z > 80) return;
+            // Only add colliders for objects taller than ~1 unit (buildings, trees, walls)
+            if (_tempSize.y > 1.0) {
+              playerController.addCollider(_tempBox.clone());
+            }
+          });
+        }
+
+        // Collect ground meshes for raycasting (ground following)
+        const cityGroundMeshes = [];
+        city.scene.traverse((child) => {
+          if (child.isMesh && child.geometry) {
+            cityGroundMeshes.push(child);
+          }
+        });
+        playerController.setGroundMeshes(cityGroundMeshes);
+        playerController.currentGroundY = 0;
+
         pp.updateScene(city.scene, city.camera);
         break;
 
@@ -157,6 +185,11 @@ export async function create(chapter, renderer) {
         playerController.setBounds(OFFICE_BOUNDS);
         playerController.yaw = Math.PI;
         playerController.pitch = 0.3;
+
+        // Office-specific camera settings (tighter, lower for indoor space)
+        playerController.cfg.camDistance = 4.0;
+        playerController.cfg.camHeight = 2.0;
+        playerController.cfg.camLookAtHeight = 1.5;
 
         // Player's L-desk (main surface + extension)
         playerController.addCollider(new THREE.Box3(
@@ -184,6 +217,16 @@ export async function create(chapter, renderer) {
         playerController.addCollider(new THREE.Box3(
           new THREE.Vector3(6.6, 0, -5.9), new THREE.Vector3(7.4, 1.5, -5.1)
         ));
+
+        // Collect ground meshes for raycasting
+        const officeGroundMeshes = [];
+        office.scene.traverse((child) => {
+          if (child.isMesh && child.geometry) {
+            officeGroundMeshes.push(child);
+          }
+        });
+        playerController.setGroundMeshes(officeGroundMeshes);
+        playerController.currentGroundY = 0;
 
         pp.updateScene(office.scene, office.camera);
         break;
@@ -230,9 +273,19 @@ export async function create(chapter, renderer) {
       playerController.handleMouseLook(dx, dy);
     },
 
-    // Interaction attempt (A button / Space / Enter)
+    // Interaction attempt (Enter / A button)
     tryInteract() {
       return interactions.tryInteract();
+    },
+
+    // Jump (Space / X button)
+    jump() {
+      playerController.jump();
+    },
+
+    // Register an animation (sit, type, etc.) for later playback
+    registerAnimation(name, action) {
+      playerController.registerAnimation(name, action);
     },
 
     // Enable free-roam (called by FreeRoamBeat)
@@ -311,8 +364,13 @@ export async function create(chapter, renderer) {
 
       sitDown(ctx) {
         playerAnchor.position.copy(INTERACTION_POINTS.chair);
-        playerAnchor.rotation.y = Math.PI * 0.7;
+        playerAnchor.rotation.y = 0; // Face forward toward desk (+Z)
         playerController.disable();
+
+        // Play sit animation if registered
+        if (playerController.animations['sit']) {
+          playerController.playAnimation('sit', { loop: false });
+        }
 
         if (office.camera) {
           office.camera.position.set(1.5, 1.6, -1.5);
@@ -321,7 +379,10 @@ export async function create(chapter, renderer) {
       },
 
       startWorking(ctx) {
-        // Show computer screen with typing animation
+        // Play typing animation if registered
+        if (playerController.animations['type']) {
+          playerController.playAnimation('type', { loop: true });
+        }
         computerScreen.show();
       },
 
