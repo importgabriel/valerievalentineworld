@@ -102,7 +102,7 @@ let isWalking = false;
 gltfLoader.loadAsync("/models/avatar/snoopy.glb")
   .then((gltf) => {
     characterModel = gltf.scene;
-    characterModel.scale.setScalar(1.0);
+    characterModel.scale.setScalar(2.5);
     characterModel.position.y = 0;
     player.add(characterModel);
 
@@ -247,9 +247,9 @@ const MOVE_ACCEL = 15.0;
 const MOVE_DECEL = 10.0;
 const TURN_SPEED = 8.0;
 
-const CAM_DISTANCE = 7.0;
-const CAM_HEIGHT = 3.0;
-const CAM_LOOKAT_HEIGHT = 2.0;
+const CAM_DISTANCE = 9.0;
+const CAM_HEIGHT = 5.0;
+const CAM_LOOKAT_HEIGHT = 3.5;
 const CAM_SMOOTHING = 10.0;
 const CAM_STICK_SENSITIVITY = 3.0;
 
@@ -710,12 +710,12 @@ function update(dt) {
     const active = sceneManager.getActiveScene();
     if (active && active.handleInput) {
       const gp = getGamepadInput();
-      let inputX = gp.moveX;
+      let inputX = -gp.moveX;
       let inputZ = -gp.moveY;
       if (keys.KeyW || keys.ArrowUp) inputZ += 1;
       if (keys.KeyS || keys.ArrowDown) inputZ -= 1;
-      if (keys.KeyA || keys.ArrowLeft) inputX -= 1;
-      if (keys.KeyD || keys.ArrowRight) inputX += 1;
+      if (keys.KeyA || keys.ArrowLeft) inputX += 1;
+      if (keys.KeyD || keys.ArrowRight) inputX -= 1;
       active.handleInput({ inputX, inputZ, lookX: gp.lookX, lookY: gp.lookY }, dt);
     }
     sequenceRunner.update(dt);
@@ -740,13 +740,13 @@ function update(dt) {
 
   const gp = getGamepadInput();
 
-  let inputX = gp.moveX;
+  let inputX = -gp.moveX;
   let inputZ = -gp.moveY;
 
   if (keys.KeyW || keys.ArrowUp) inputZ += 1;
   if (keys.KeyS || keys.ArrowDown) inputZ -= 1;
-  if (keys.KeyA || keys.ArrowLeft) inputX -= 1;
-  if (keys.KeyD || keys.ArrowRight) inputX += 1;
+  if (keys.KeyA || keys.ArrowLeft) inputX += 1;
+  if (keys.KeyD || keys.ArrowRight) inputX -= 1;
 
   inputX = THREE.MathUtils.clamp(inputX, -1, 1);
   inputZ = THREE.MathUtils.clamp(inputZ, -1, 1);

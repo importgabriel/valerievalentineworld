@@ -40,6 +40,14 @@ export async function create(chapter, renderer) {
     gltfLoader.loadAsync("/models/environment/low_poly_people_free_sample_pack.glb"),
   ]);
 
+  // To use individual character files instead of the pack, replace peopleGltf above:
+  // const peopleGltfs = await Promise.all([
+  //   gltfLoader.loadAsync("/models/people/character1.glb"),
+  //   gltfLoader.loadAsync("/models/people/character2.glb"),
+  //   // ... add more as needed
+  // ]);
+  // Then pass peopleGltfs (array) to buildCityScene instead of peopleGltf
+
   // Build all sub-scenes with loaded models
   const subway = buildSubwayScene(subwayGltf);
   const city = buildCityScene(cityGltf, peopleGltf);
@@ -60,9 +68,9 @@ export async function create(chapter, renderer) {
     player: playerAnchor,
     camera: city.camera, // Will be updated per phase
     moveSpeed: 6.0,
-    camDistance: 6.0,
-    camHeight: 3.0,
-    camLookAtHeight: 2.0,
+    camDistance: 8.0,
+    camHeight: 5.0,
+    camLookAtHeight: 3.5,
     initialYaw: 0,
   });
 
@@ -113,6 +121,31 @@ export async function create(chapter, renderer) {
           new THREE.Vector3(-4, 0, -20), new THREE.Vector3(4, 10, 160)
         ));
 
+        // Lamp post colliders (at x=+-5, every 15 units along z)
+        for (let z = 0; z < 140; z += 15) {
+          playerController.addCollider(new THREE.Box3(
+            new THREE.Vector3(-5.4, 0, z - 0.4), new THREE.Vector3(-4.6, 6, z + 0.4)
+          ));
+          playerController.addCollider(new THREE.Box3(
+            new THREE.Vector3(4.6, 0, z - 0.4), new THREE.Vector3(5.4, 6, z + 0.4)
+          ));
+        }
+
+        // Traffic light colliders (at x=+-4, at key intersections)
+        for (const tz of [0, 30, 60, 90, 120]) {
+          playerController.addCollider(new THREE.Box3(
+            new THREE.Vector3(-4.4, 0, tz - 0.4), new THREE.Vector3(-3.6, 5, tz + 0.4)
+          ));
+          playerController.addCollider(new THREE.Box3(
+            new THREE.Vector3(3.6, 0, tz - 0.4), new THREE.Vector3(4.4, 5, tz + 0.4)
+          ));
+        }
+
+        // JPMorgan building (14x14 footprint centered at z=137)
+        playerController.addCollider(new THREE.Box3(
+          new THREE.Vector3(-7, 0, 130), new THREE.Vector3(7, 60, 144)
+        ));
+
         pp.updateScene(city.scene, city.camera);
         break;
 
@@ -124,6 +157,33 @@ export async function create(chapter, renderer) {
         playerController.setBounds(OFFICE_BOUNDS);
         playerController.yaw = Math.PI;
         playerController.pitch = 0.3;
+
+        // Player's L-desk (main surface + extension)
+        playerController.addCollider(new THREE.Box3(
+          new THREE.Vector3(-0.9, 0, 0.0), new THREE.Vector3(1.5, 1.5, 1.0)
+        ));
+        playerController.addCollider(new THREE.Box3(
+          new THREE.Vector3(1.5, 0, -0.1), new THREE.Vector3(2.3, 1.5, 0.6)
+        ));
+
+        // Left coworker desk (x=-4, z=0.5, 2.0 wide x 0.9 deep)
+        playerController.addCollider(new THREE.Box3(
+          new THREE.Vector3(-5.0, 0, 0.05), new THREE.Vector3(-3.0, 1.5, 0.95)
+        ));
+        // Right coworker desk (x=4, z=0.5)
+        playerController.addCollider(new THREE.Box3(
+          new THREE.Vector3(3.0, 0, 0.05), new THREE.Vector3(5.0, 1.5, 0.95)
+        ));
+
+        // Filing cabinets along back wall
+        playerController.addCollider(new THREE.Box3(
+          new THREE.Vector3(-6.5, 0, -6.1), new THREE.Vector3(-2.4, 1.5, -5.35)
+        ));
+
+        // Water cooler near back-right wall
+        playerController.addCollider(new THREE.Box3(
+          new THREE.Vector3(6.6, 0, -5.9), new THREE.Vector3(7.4, 1.5, -5.1)
+        ));
 
         pp.updateScene(office.scene, office.camera);
         break;
