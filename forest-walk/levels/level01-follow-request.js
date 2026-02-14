@@ -164,14 +164,8 @@ export async function create(chapter, renderer) {
           });
         }
 
-        // Collect ground meshes for raycasting (ground following)
-        const cityGroundMeshes = [];
-        city.scene.traverse((child) => {
-          if (child.isMesh && child.geometry) {
-            cityGroundMeshes.push(child);
-          }
-        });
-        playerController.setGroundMeshes(cityGroundMeshes);
+        // Use only flat ground surfaces for raycasting (not buildings/lamps/NPCs)
+        playerController.setGroundMeshes(city.groundMeshes || []);
         playerController.currentGroundY = 0;
 
         pp.updateScene(city.scene, city.camera);

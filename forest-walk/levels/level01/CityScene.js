@@ -32,7 +32,7 @@ export function buildCityScene(cityGltf, peopleGltf) {
   );
 
   // Load the low-poly city GLB model
-  const cityModel = setupCityModel(scene, cityGltf);
+  const { cityModel, groundMeshes } = setupCityModel(scene, cityGltf);
 
   // Keep procedural elements that the GLB doesn't have
   buildJPMorganBuilding(scene);
@@ -70,6 +70,7 @@ export function buildCityScene(cityGltf, peopleGltf) {
     sunLight,
     npcSystem,
     cityModel,
+    groundMeshes,
 
     update(dt) {
       if (npcSystem) npcSystem.update(dt);
@@ -110,10 +111,13 @@ export function buildCityScene(cityGltf, peopleGltf) {
 // ========================================
 
 function setupCityModel(scene, cityGltf) {
+  const groundMeshes = [];
+
   if (!cityGltf) {
     // Fallback: build a simple procedural ground if GLB is missing
-    buildFallbackGround(scene);
-    return null;
+    const fallbackGround = buildFallbackGround(scene);
+    if (fallbackGround) groundMeshes.push(fallbackGround);
+    return { cityModel: null, groundMeshes };
   }
 
   const cityModel = cityGltf.scene;
@@ -138,9 +142,6 @@ function setupCityModel(scene, cityGltf) {
 
   scene.add(cityModel);
 
-  // Return the model reference for collision/raycast generation
-  // (ground plane is also in the scene, picked up separately)
-
   // Add a ground plane that extends beyond the model
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 300),
@@ -151,7 +152,10 @@ function setupCityModel(scene, cityGltf) {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  return cityModel;
+  // Only the flat ground plane is used for ground raycasting (not buildings/lamps/NPCs)
+  groundMeshes.push(ground);
+
+  return { cityModel, groundMeshes };
 }
 
 function buildFallbackGround(scene) {
@@ -171,6 +175,8 @@ function buildFallbackGround(scene) {
   road.position.set(0, -0.02, 70);
   road.receiveShadow = true;
   scene.add(road);
+
+  return ground;
 }
 
 // ========================================
