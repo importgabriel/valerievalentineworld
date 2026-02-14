@@ -39,7 +39,7 @@ export function buildCityScene(cityGltf, peopleGltf) {
   buildSubwayExit(scene);
   buildStreetElements(scene);
 
-  // NPC system using GLB people pack — walkable ranges closer to player path
+  // NPC system — accepts people pack GLTF or array of individual character GLTFs
   let npcSystem = null;
   if (peopleGltf) {
     npcSystem = new GLBNPCSystem(scene, peopleGltf, {

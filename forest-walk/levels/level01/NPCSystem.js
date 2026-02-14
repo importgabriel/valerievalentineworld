@@ -166,6 +166,11 @@ const CHARACTER_NAMES = [
 ];
 
 export class GLBNPCSystem {
+  /**
+   * @param {THREE.Scene} scene
+   * @param {object|object[]} peopleGltf — single pack GLTF or array of individual character GLTFs
+   * @param {object} options
+   */
   constructor(scene, peopleGltf, options = {}) {
     this.scene = scene;
     this.count = options.count || 20;
@@ -173,7 +178,55 @@ export class GLBNPCSystem {
     this.walkableXRanges = options.walkableXRanges || [[-8, -5], [5, 8]];
     this.npcs = [];
 
-    this._extractAndPlaceNPCs(peopleGltf);
+    // Support both individual GLTFs array and single pack
+    if (Array.isArray(peopleGltf)) {
+      this._placeFromIndividualGLTFs(peopleGltf);
+    } else {
+      this._extractAndPlaceNPCs(peopleGltf);
+    }
+  }
+
+  _placeFromIndividualGLTFs(gltfs) {
+    const templates = [];
+    for (const gltf of gltfs) {
+      if (gltf && gltf.scene) {
+        templates.push(gltf.scene);
+      }
+    }
+
+    if (templates.length > 0) {
+      for (let i = 0; i < this.count; i++) {
+        const template = templates[i % templates.length];
+        let npc;
+        try {
+          npc = SkeletonUtils.clone(template);
+        } catch (e) {
+          npc = template.clone();
+        }
+
+        // Auto-scale: normalize character height to ~1.8 world units
+        const box = new THREE.Box3().setFromObject(npc);
+        const height = box.max.y - box.min.y;
+        if (height > 0) {
+          const targetHeight = 1.8;
+          npc.scale.multiplyScalar(targetHeight / height);
+        }
+
+        npc.position.set(0, 0, 0);
+        npc.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+
+        this._placeNPC(npc, i);
+      }
+      this._addSilhouetteNPCs(0);
+    } else {
+      console.warn("GLBNPCSystem: No individual character GLTFs provided, using silhouettes");
+      this._addSilhouetteNPCs(this.count);
+    }
   }
 
   _extractAndPlaceNPCs(gltf) {
@@ -183,8 +236,20 @@ export class GLBNPCSystem {
     if (rootNode) {
       const templates = [];
       for (const name of CHARACTER_NAMES) {
-        const node = rootNode.children.find((c) => c.name === name);
+        const node = rootNode.children.find((c) =>
+          c.name === name || c.name.startsWith(name) || c.name.includes(name)
+        );
         if (node) templates.push(node);
+      }
+
+      // Fallback: if none of the expected names matched, try all group/mesh children
+      if (templates.length === 0) {
+        for (const child of rootNode.children) {
+          if (child.children.length > 0 || child.isMesh) {
+            templates.push(child);
+          }
+          if (templates.length >= 8) break;
+        }
       }
 
       if (templates.length > 0) {
