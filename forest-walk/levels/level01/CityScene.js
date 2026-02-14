@@ -227,6 +227,26 @@ function setupEdificioBuilding(scene, edificioGltf) {
     if (child.isMesh) {
       child.castShadow = true;
       child.receiveShadow = true;
+
+      // Fix materials that appear all-black: ensure proper color space on
+      // textures, clamp metalness, and boost roughness so PBR lighting works.
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      for (const mat of mats) {
+        if (!mat || !mat.isMeshStandardMaterial) continue;
+
+        // Ensure base color textures use sRGB encoding
+        if (mat.map) {
+          mat.map.colorSpace = THREE.SRGBColorSpace;
+          mat.map.needsUpdate = true;
+        }
+
+        // Highly metallic surfaces with no environment map look black;
+        // reduce metalness and raise roughness so diffuse lighting shows.
+        if (mat.metalness > 0.6) mat.metalness = 0.3;
+        if (mat.roughness < 0.3) mat.roughness = 0.5;
+
+        mat.needsUpdate = true;
+      }
     }
   });
 
