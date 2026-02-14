@@ -30,7 +30,7 @@ export function buildOfficeScene() {
 
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
 
-  const roomDims = createRoom(scene);
+  const { roomDims, floorMesh } = createRoom(scene);
   createWindows(scene, roomDims);
   createCitySkyline(scene, roomDims);
   const furniture = createFurniture(scene);
@@ -44,6 +44,7 @@ export function buildOfficeScene() {
     camera,
     furniture,
     sunLight,
+    groundMeshes: [floorMesh],
 
     // Monitor mesh reference for overlay positioning
     monitorScreen: furniture.monitorScreen,
@@ -158,7 +159,7 @@ function createRoom(scene) {
   scene.add(new THREE.Mesh(mergeGeometries(frameGeos), frameMat));
   frameGeos.forEach(g => g.dispose());
 
-  return { roomW, roomH, roomD };
+  return { roomDims: { roomW, roomH, roomD }, floorMesh: floor };
 }
 
 function createWindows(scene, { roomW, roomH, roomD }) {

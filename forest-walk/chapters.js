@@ -77,7 +77,9 @@ export const chapters = [
 
       // === PHASE 2: CITY FREE-ROAM ===
       { type: "scene_swap", targetPhase: "CITY" },
-      { type: "fade", direction: "out", duration: 0.5 },
+      // Position camera behind player before revealing city
+      { type: "custom_callback", callbackName: "positionCityCamera", duration: 0.01 },
+      { type: "fade", direction: "out", duration: 0.8 },
       {
         type: "text_bubble",
         text: "NYC. Summer internship. Just another day.",
@@ -95,7 +97,8 @@ export const chapters = [
       // === PHASE 3: ENTER BUILDING ===
       { type: "fade", direction: "in", duration: 0.8 },
       { type: "scene_swap", targetPhase: "OFFICE" },
-      { type: "custom_callback", callbackName: "playDoorAnimation", duration: 0.5 },
+      // Position camera in office before revealing
+      { type: "custom_callback", callbackName: "positionOfficeCamera", duration: 0.01 },
       { type: "fade", direction: "out", duration: 0.8 },
 
       // === PHASE 4: OFFICE — WALK TO CHAIR ===

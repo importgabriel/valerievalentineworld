@@ -72,6 +72,8 @@ export class PlayerController {
 
   enable() {
     this.enabled = true;
+    this.isGrounded = true;
+    this.jumpVelocity = 0;
   }
 
   disable() {
@@ -185,7 +187,11 @@ export class PlayerController {
       this.groundRaycaster.set(_rayOrigin, _rayDown);
       const hits = this.groundRaycaster.intersectObjects(this.groundMeshes, true);
       if (hits.length > 0) {
-        groundY = hits[0].point.y + this.groundOffset;
+        const hitY = hits[0].point.y + this.groundOffset;
+        // Reject ground detections that jump unreasonably high (e.g. hitting rooftops)
+        if (hitY < this.currentGroundY + 2.0) {
+          groundY = hitY;
+        }
       }
     }
 

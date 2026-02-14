@@ -97,28 +97,40 @@ const gltfLoader = new GLTFLoader();
 let characterModel = null;
 let mixer = null;
 let walkAction = null;
+let sitAction = null;
 let isWalking = false;
 
-gltfLoader.loadAsync("/models/avatar/snoopy.glb")
-  .then((gltf) => {
-    characterModel = gltf.scene;
-    characterModel.scale.setScalar(2.5);
-    characterModel.position.y = 0;
-    player.add(characterModel);
+// Load character model (with walk animation) and sitting animation in parallel
+Promise.all([
+  gltfLoader.loadAsync("/models/avatar/snoopy.glb"),
+  gltfLoader.loadAsync("/models/animations/ImageToStl.com_Sitting/Sitting.glb"),
+]).then(([snoopyGltf, sittingGltf]) => {
+  // Setup character model from snoopy.glb (has mesh + walk animation)
+  characterModel = snoopyGltf.scene;
+  characterModel.scale.setScalar(2.5);
+  characterModel.position.y = 0;
+  player.add(characterModel);
 
-    mixer = new THREE.AnimationMixer(characterModel);
+  mixer = new THREE.AnimationMixer(characterModel);
 
-    // Use embedded animations from the GLB (walk animation)
-    if (gltf.animations && gltf.animations.length > 0) {
-      const walkClip = gltf.animations[0];
-      walkAction = mixer.clipAction(walkClip);
-      walkAction.setLoop(THREE.LoopRepeat);
-      walkAction.timeScale = 1.2;
-    }
-  })
-  .catch((error) => {
-    console.error("Error loading avatar:", error);
-  });
+  // Walk animation from snoopy.glb
+  if (snoopyGltf.animations && snoopyGltf.animations.length > 0) {
+    const walkClip = snoopyGltf.animations[0];
+    walkAction = mixer.clipAction(walkClip);
+    walkAction.setLoop(THREE.LoopRepeat);
+    walkAction.timeScale = 1.2;
+  }
+
+  // Sitting animation from Sitting.glb (skeleton-only export, no mesh)
+  if (sittingGltf.animations && sittingGltf.animations.length > 0) {
+    const sitClip = sittingGltf.animations[0];
+    sitAction = mixer.clipAction(sitClip);
+    sitAction.setLoop(THREE.LoopOnce);
+    sitAction.clampWhenFinished = true;
+  }
+}).catch((error) => {
+  console.error("Error loading avatar/animations:", error);
+});
 
 // Register hub scene with scene manager
 sceneManager.setHub({
@@ -535,9 +547,12 @@ async function enterLevel(chapterIndex) {
       levelScene.setWalkAction(walkAction);
     }
 
-    // Register walk animation for animation management system
+    // Register animations for animation management system
     if (walkAction && levelScene.registerAnimation) {
       levelScene.registerAnimation('walk', walkAction);
+    }
+    if (sitAction && levelScene.registerAnimation) {
+      levelScene.registerAnimation('sit', sitAction);
     }
 
     // Start the narrative sequence

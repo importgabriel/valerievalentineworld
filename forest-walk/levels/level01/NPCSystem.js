@@ -177,6 +177,8 @@ export class GLBNPCSystem {
     this.bounds = options.bounds || { minZ: -10, maxZ: 80 };
     this.walkableXRanges = options.walkableXRanges || [[-8, -5], [5, 8]];
     this.npcs = [];
+    this.mixers = [];
+    this.walkClip = options.walkClip || null;
 
     // Support both individual GLTFs array and single pack
     if (Array.isArray(peopleGltf)) {
@@ -303,6 +305,20 @@ export class GLBNPCSystem {
     const isStationary = Math.random() > 0.9;
     const direction = index % 2 === 0 ? 1 : -1;
 
+    // Create animation mixer if walk clip is available and NPC is moving
+    if (this.walkClip && !isStationary) {
+      try {
+        const mixer = new THREE.AnimationMixer(npcModel);
+        const action = mixer.clipAction(this.walkClip);
+        action.setLoop(THREE.LoopRepeat);
+        action.timeScale = 0.8 + Math.random() * 0.4;
+        action.play();
+        this.mixers.push(mixer);
+      } catch (e) {
+        // Animation binding may fail if bone names don't match — that's OK
+      }
+    }
+
     this.npcs.push({
       group: npcGroup,
       speed: isStationary ? 0 : 1.5 + Math.random() * 2.5,
@@ -356,6 +372,10 @@ export class GLBNPCSystem {
 
       npc.group.position.z += npc.speed * npc.direction * dt;
 
+      // Procedural walk bob for silhouette NPCs (slight up/down motion)
+      const walkCycle = (performance.now() * 0.003 * npc.speed) % (Math.PI * 2);
+      npc.group.position.y = Math.abs(Math.sin(walkCycle)) * 0.08;
+
       // Wrap around
       if (npc.group.position.z > this.bounds.maxZ) {
         npc.group.position.z = this.bounds.minZ;
@@ -364,9 +384,19 @@ export class GLBNPCSystem {
         npc.group.position.z = this.bounds.maxZ;
       }
     }
+
+    // Tick all animation mixers for GLB NPCs
+    for (const mixer of this.mixers) {
+      mixer.update(dt);
+    }
   }
 
   dispose() {
+    for (const mixer of this.mixers) {
+      mixer.stopAllAction();
+    }
+    this.mixers = [];
+
     for (const npc of this.npcs) {
       this.scene.remove(npc.group);
       npc.group.traverse((obj) => {

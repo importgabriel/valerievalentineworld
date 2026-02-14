@@ -1,5 +1,5 @@
 // ========================================
-// CITY SCENE — Low-poly GLB city with JPMorgan building
+// CITY SCENE — Low-poly GLB city with Edificio building
 // ========================================
 
 import * as THREE from "three";
@@ -8,8 +8,8 @@ import { MATS, PALETTE } from "./constants.js";
 import { createSkyBackdrop } from "../levelUtils.js";
 import { GLBNPCSystem } from "./NPCSystem.js";
 
-// JPMorgan entrance position (used for trigger)
-export const JPMORGAN_ENTRANCE = new THREE.Vector3(0, 0, 130);
+// Building entrance position (used for trigger)
+export const BUILDING_ENTRANCE = new THREE.Vector3(0, 0, 130);
 
 // City bounds for player movement
 export const CITY_BOUNDS = {
@@ -19,7 +19,7 @@ export const CITY_BOUNDS = {
   maxZ: 140,
 };
 
-export function buildCityScene(cityGltf, peopleGltf) {
+export function buildCityScene(cityGltf, peopleGltf, options = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xddeeff);
   scene.fog = new THREE.Fog(0xddeeff, 100, 250);
@@ -32,10 +32,10 @@ export function buildCityScene(cityGltf, peopleGltf) {
   );
 
   // Load the low-poly city GLB model
-  const cityModel = setupCityModel(scene, cityGltf);
+  const { cityModel, groundMeshes } = setupCityModel(scene, cityGltf);
 
   // Keep procedural elements that the GLB doesn't have
-  buildJPMorganBuilding(scene);
+  const edificio = setupEdificioBuilding(scene, options.edificioGltf);
   buildSubwayExit(scene);
   buildStreetElements(scene);
 
@@ -51,10 +51,11 @@ export function buildCityScene(cityGltf, peopleGltf) {
         [5, 7],
         [8, 12],
       ],
+      walkClip: options.walkClip || null,
     });
   }
 
-  // Navigation waypoint — floating marker above JPMorgan entrance
+  // Navigation waypoint — floating marker above building entrance
   const waypointGroup = buildNavigationWaypoint(scene);
 
   const { sunLight } = addLighting(scene);
@@ -70,6 +71,8 @@ export function buildCityScene(cityGltf, peopleGltf) {
     sunLight,
     npcSystem,
     cityModel,
+    groundMeshes,
+    edificioCollider: edificio ? edificio.collider : null,
 
     update(dt) {
       if (npcSystem) npcSystem.update(dt);
@@ -110,10 +113,13 @@ export function buildCityScene(cityGltf, peopleGltf) {
 // ========================================
 
 function setupCityModel(scene, cityGltf) {
+  const groundMeshes = [];
+
   if (!cityGltf) {
     // Fallback: build a simple procedural ground if GLB is missing
-    buildFallbackGround(scene);
-    return null;
+    const fallbackGround = buildFallbackGround(scene);
+    if (fallbackGround) groundMeshes.push(fallbackGround);
+    return { cityModel: null, groundMeshes };
   }
 
   const cityModel = cityGltf.scene;
@@ -138,9 +144,6 @@ function setupCityModel(scene, cityGltf) {
 
   scene.add(cityModel);
 
-  // Return the model reference for collision/raycast generation
-  // (ground plane is also in the scene, picked up separately)
-
   // Add a ground plane that extends beyond the model
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 300),
@@ -151,7 +154,10 @@ function setupCityModel(scene, cityGltf) {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  return cityModel;
+  // Only the flat ground plane is used for ground raycasting (not buildings/lamps/NPCs)
+  groundMeshes.push(ground);
+
+  return { cityModel, groundMeshes };
 }
 
 function buildFallbackGround(scene) {
@@ -171,116 +177,65 @@ function buildFallbackGround(scene) {
   road.position.set(0, -0.02, 70);
   road.receiveShadow = true;
   scene.add(road);
+
+  return ground;
 }
 
 // ========================================
-// JPMORGAN BUILDING (procedural — kept for destination trigger)
+// EDIFICIO BUILDING (GLB model — destination trigger)
 // ========================================
 
-function buildJPMorganBuilding(scene) {
-  const h = 60,
-    w = 14,
-    d = 14;
-  const x = 0,
-    z = 137;
+function setupEdificioBuilding(scene, edificioGltf) {
+  if (!edificioGltf) {
+    // Fallback: simple procedural building if GLB is missing
+    const fallback = new THREE.Mesh(
+      new THREE.BoxGeometry(14, 60, 14),
+      new THREE.MeshStandardMaterial({ color: 0x667788, roughness: 0.4, metalness: 0.3 })
+    );
+    fallback.position.set(0, 30, 137);
+    fallback.castShadow = true;
+    scene.add(fallback);
 
-  const building = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    MATS.jpmorganGlass
+    const collider = new THREE.Box3(
+      new THREE.Vector3(-7, 0, 130), new THREE.Vector3(7, 60, 144)
+    );
+    return { model: fallback, collider };
+  }
+
+  const model = edificioGltf.scene;
+
+  // Compute original bounds
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+
+  // Scale to ~60 units tall (matching the city's building scale)
+  const targetHeight = 60;
+  const scale = targetHeight / size.y;
+  model.scale.setScalar(scale);
+
+  // Position: center on x=0, base at y=0, centered at z=137
+  model.position.set(
+    -center.x * scale,
+    -box.min.y * scale,
+    137 - center.z * scale
   );
-  building.position.set(x, h / 2, z);
-  building.castShadow = true;
-  scene.add(building);
 
-  // Window grid on front face
-  const windowGeos = [];
-  const wRows = Math.floor(h / 3);
-  const wCols = Math.floor(w / 2);
-  for (let r = 0; r < wRows; r++) {
-    for (let c = 0; c < wCols; c++) {
-      const wx = x - w / 2 + 1.5 + c * 2;
-      const wy = 2 + r * 3;
-      const wGeo = new THREE.PlaneGeometry(1.0, 1.8);
-      wGeo.translate(wx, wy, z - d / 2 - 0.01);
-      windowGeos.push(wGeo);
+  model.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
     }
-  }
-  if (windowGeos.length > 0) {
-    const winMat = new THREE.MeshStandardMaterial({
-      color: 0x334466,
-      roughness: 0.05,
-      metalness: 0.5,
-      transparent: true,
-      opacity: 0.6,
-    });
-    scene.add(new THREE.Mesh(mergeGeometries(windowGeos), winMat));
-    windowGeos.forEach((g) => g.dispose());
-  }
-
-  // JPMorgan logo
-  const logoCanvas = document.createElement("canvas");
-  logoCanvas.width = 512;
-  logoCanvas.height = 128;
-  const ctx = logoCanvas.getContext("2d");
-  ctx.fillStyle = "#003366";
-  ctx.fillRect(0, 0, 512, 128);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 48px Arial, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("JPMORGAN", 256, 50);
-  ctx.font = "24px Arial, sans-serif";
-  ctx.fillText("CHASE & CO.", 256, 90);
-
-  const logoTex = new THREE.CanvasTexture(logoCanvas);
-  const logoMat = new THREE.SpriteMaterial({
-    map: logoTex,
-    transparent: true,
   });
-  const logo = new THREE.Sprite(logoMat);
-  logo.position.set(x, 6, z - d / 2 - 0.5);
-  logo.scale.set(8, 2, 1);
-  scene.add(logo);
 
-  // Entrance — glass doors
-  const entranceGeos = [];
+  scene.add(model);
 
-  const frameLeft = new THREE.BoxGeometry(0.2, 3.5, 0.2);
-  frameLeft.translate(x - 1.5, 1.75, z - d / 2 - 0.1);
-  entranceGeos.push(frameLeft);
+  // Compute world-space collider after positioning
+  const worldBox = new THREE.Box3().setFromObject(model);
 
-  const frameRight = new THREE.BoxGeometry(0.2, 3.5, 0.2);
-  frameRight.translate(x + 1.5, 1.75, z - d / 2 - 0.1);
-  entranceGeos.push(frameRight);
-
-  const frameTop = new THREE.BoxGeometry(3.2, 0.2, 0.2);
-  frameTop.translate(x, 3.5, z - d / 2 - 0.1);
-  entranceGeos.push(frameTop);
-
-  if (entranceGeos.length > 0) {
-    const frameMat = new THREE.MeshStandardMaterial({
-      color: 0x333333,
-      roughness: 0.3,
-      metalness: 0.5,
-    });
-    scene.add(new THREE.Mesh(mergeGeometries(entranceGeos), frameMat));
-    entranceGeos.forEach((g) => g.dispose());
-  }
-
-  const doorGlass = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.8, 3.2),
-    new THREE.MeshPhysicalMaterial({
-      color: 0x88bbcc,
-      transparent: true,
-      opacity: 0.25,
-      roughness: 0.05,
-      metalness: 0.1,
-    })
-  );
-  doorGlass.position.set(x, 1.7, z - d / 2 - 0.11);
-  scene.add(doorGlass);
-
-  // Glowing entrance marker
+  // Glowing entrance marker on the ground
   const markerGeo = new THREE.CircleGeometry(1.5, 24);
   markerGeo.rotateX(-Math.PI / 2);
   const markerMat = new THREE.MeshStandardMaterial({
@@ -292,8 +247,10 @@ function buildJPMorganBuilding(scene) {
     side: THREE.DoubleSide,
   });
   const marker = new THREE.Mesh(markerGeo, markerMat);
-  marker.position.set(x, 0.02, z - d / 2 - 1.5);
+  marker.position.set(0, 0.02, 130);
   scene.add(marker);
+
+  return { model, collider: worldBox };
 }
 
 // ========================================
@@ -447,7 +404,7 @@ function buildStreetElements(scene) {
 }
 
 // ========================================
-// NAVIGATION WAYPOINT — floating diamond marker above JPMorgan
+// NAVIGATION WAYPOINT — floating diamond marker above Edificio
 // ========================================
 
 function buildNavigationWaypoint(scene) {
@@ -489,7 +446,7 @@ function buildNavigationWaypoint(scene) {
   labelCanvas.width = 512;
   labelCanvas.height = 128;
   const ctx = labelCanvas.getContext("2d");
-  ctx.fillStyle = "rgba(0,51,102,0.8)";
+  ctx.fillStyle = "rgba(51,68,85,0.8)";
   ctx.beginPath();
   // Compatible rounded rect
   const rx = 16, ry = 16, rw = 480, rh = 96, rr = 16;
@@ -508,7 +465,7 @@ function buildNavigationWaypoint(scene) {
   ctx.font = "bold 44px Arial, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("JPMORGAN", 256, 50);
+  ctx.fillText("EDIFICIO", 256, 50);
   ctx.font = "24px Arial, sans-serif";
   ctx.fillStyle = "#ffdd88";
   ctx.fillText("Walk here", 256, 84);
