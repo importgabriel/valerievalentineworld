@@ -146,6 +146,10 @@ export async function create(chapter, renderer) {
     switch (phase) {
       case PHASES.SUBWAY:
         activeSubScene = subway;
+        // Place Snoopy on the platform so he's visible during the cinematic
+        subway.scene.add(playerAnchor);
+        playerAnchor.position.set(3, 0.8, 2);
+        playerAnchor.rotation.y = -Math.PI / 2; // Face toward the tracks
         pp.updateScene(subway.scene, subway.camera);
         break;
 

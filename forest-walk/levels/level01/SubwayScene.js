@@ -49,7 +49,7 @@ export function buildSubwayScene(subwayGltf) {
   buildTunnelWalls(scene);
 
   // Set up the train from GLB
-  const trainGroup = setupTrain(scene, subwayGltf);
+  const { trainGroup, platformDoors } = setupTrain(scene, subwayGltf);
 
   // Lighting
   addLighting(scene, trainGroup);
@@ -136,13 +136,23 @@ export function buildSubwayScene(subwayGltf) {
           }
           break;
 
-        case TRAIN_STATES.DOORS_OPEN:
-          // Hold for doors
-          if (stateTimer > 1.0) {
+        case TRAIN_STATES.DOORS_OPEN: {
+          // Animate doors sliding open over 0.6s
+          const doorT = Math.min(stateTimer / 0.6, 1);
+          const doorEased = 1 - Math.pow(1 - doorT, 3); // easeOutCubic
+          const slideAmount = doorEased * 0.7;
+
+          for (const pair of platformDoors) {
+            pair.left.position.z = pair.closedLeftZ - slideAmount;
+            pair.right.position.z = pair.closedRightZ + slideAmount;
+          }
+
+          if (stateTimer > 1.5) {
             trainState = TRAIN_STATES.CHARACTER_EXIT;
             stateTimer = 0;
           }
           break;
+        }
 
         case TRAIN_STATES.CHARACTER_EXIT:
           if (stateTimer > 2.0) {
@@ -418,13 +428,34 @@ function buildProceduralTrain() {
 
   // Door areas (wider windows in the middle and ends)
   const doorMat = new THREE.MeshStandardMaterial({ color: 0x666677, roughness: 0.3, metalness: 0.4 });
-  for (const side of [-1, 1]) {
-    for (const dz of [-carLength / 4, 0, carLength / 4]) {
-      const door = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), doorMat);
-      door.position.set(side * (carWidth / 2 + 0.01), carHeight / 2 - 0.1, dz);
-      door.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-      group.add(door);
-    }
+  const platformDoors = [];
+
+  // Non-platform side doors (side=-1) — static
+  for (const dz of [-carLength / 4, 0, carLength / 4]) {
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), doorMat);
+    door.position.set(-(carWidth / 2 + 0.01), carHeight / 2 - 0.1, dz);
+    door.rotation.y = Math.PI / 2;
+    group.add(door);
+  }
+
+  // Platform-facing doors (side=1) — sliding pairs that animate open
+  for (const dz of [-carLength / 4, 0, carLength / 4]) {
+    const leftDoor = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 2.2), doorMat);
+    leftDoor.position.set(carWidth / 2 + 0.01, carHeight / 2 - 0.1, dz - 0.35);
+    leftDoor.rotation.y = -Math.PI / 2;
+    group.add(leftDoor);
+
+    const rightDoor = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 2.2), doorMat);
+    rightDoor.position.set(carWidth / 2 + 0.01, carHeight / 2 - 0.1, dz + 0.35);
+    rightDoor.rotation.y = -Math.PI / 2;
+    group.add(rightDoor);
+
+    platformDoors.push({
+      left: leftDoor,
+      right: rightDoor,
+      closedLeftZ: dz - 0.35,
+      closedRightZ: dz + 0.35,
+    });
   }
 
   // Stripe along the side (colored band like NYC subway)
@@ -458,21 +489,21 @@ function buildProceduralTrain() {
   intLight.position.set(0, carHeight / 2 + 0.5, 0);
   group.add(intLight);
 
-  return group;
+  return { group, platformDoors };
 }
 
 function setupTrain(scene, subwayGltf) {
   const trainGroup = new THREE.Group();
 
   // Use a procedural subway car for a clean NYC subway look
-  const proceduralTrain = buildProceduralTrain();
+  const { group: proceduralTrain, platformDoors } = buildProceduralTrain();
   trainGroup.add(proceduralTrain);
 
   // Position on tracks, start way off-screen to the left (negative Z)
   trainGroup.position.set(-3, 0, -55);
 
   scene.add(trainGroup);
-  return trainGroup;
+  return { trainGroup, platformDoors };
 }
 
 // ========================================
