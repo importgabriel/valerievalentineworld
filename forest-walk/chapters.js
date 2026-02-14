@@ -77,7 +77,9 @@ export const chapters = [
 
       // === PHASE 2: CITY FREE-ROAM ===
       { type: "scene_swap", targetPhase: "CITY" },
-      { type: "fade", direction: "out", duration: 0.5 },
+      // Position camera behind player before revealing city
+      { type: "custom_callback", callbackName: "positionCityCamera", duration: 0.01 },
+      { type: "fade", direction: "out", duration: 0.8 },
       {
         type: "text_bubble",
         text: "NYC. Summer internship. Just another day.",
@@ -92,8 +94,56 @@ export const chapters = [
         radius: 6.0,
       },
 
-      // === PHASE 3: ARRIVED AT BUILDING — PHONE NOTIFICATION ===
-      { type: "fade", direction: "in", duration: 0.5 },
+      // === PHASE 3: ENTER BUILDING ===
+      { type: "fade", direction: "in", duration: 0.8 },
+      { type: "scene_swap", targetPhase: "OFFICE" },
+      // Position camera in office before revealing
+      { type: "custom_callback", callbackName: "positionOfficeCamera", duration: 0.01 },
+      { type: "fade", direction: "out", duration: 0.8 },
+
+      // === PHASE 4: OFFICE — WALK TO CHAIR ===
+      {
+        type: "text_bubble",
+        text: "Time to get to work.",
+        style: "speech",
+        duration: 2.5,
+        offsetY: 0.8,
+      },
+      { type: "wait", duration: 0.5 },
+      {
+        type: "interaction",
+        targetId: "chair",
+        promptText: "Sit down",
+      },
+      { type: "custom_callback", callbackName: "sitDown", duration: 1.0 },
+      { type: "wait", duration: 0.5 },
+
+      // === PHASE 5: INTERACTIVE WORK ===
+      // Player presses A to start working
+      { type: "key_prompt", key: "A", promptText: "Start working" },
+      { type: "custom_callback", callbackName: "startWorking", duration: 0.3 },
+      {
+        type: "text_bubble",
+        text: "Let's get this code review done...",
+        style: "speech",
+        duration: 2.5,
+        offsetY: 0.5,
+      },
+
+      // Player presses B to stop working
+      { type: "key_prompt", key: "B", promptText: "Stop working" },
+      { type: "custom_callback", callbackName: "stopWorking", duration: 0.3 },
+      { type: "wait", duration: 0.5 },
+
+      // === PHASE 6: PHONE NOTIFICATION ===
+      // Mini phone pops up in top-right with notification
+      { type: "custom_callback", callbackName: "showMiniPhone", duration: 0.5 },
+      { type: "wait", duration: 1.0 },
+
+      // Player presses A to check phone
+      { type: "key_prompt", key: "A", promptText: "Check phone" },
+      { type: "custom_callback", callbackName: "checkPhone", duration: 0.3 },
+      { type: "wait", duration: 2.0 },
       {
         type: "text_bubble",
         text: "valerie.rengifo started following you.",
@@ -108,9 +158,9 @@ export const chapters = [
         kind: "surprise",
         duration: 1.5,
       },
-      { type: "fade", direction: "out", duration: 0.5 },
+      { type: "custom_callback", callbackName: "cameraToChoice", duration: 1.0 },
 
-      // === PHASE 4: CHOICE ===
+      // === PHASE 7: CHOICE (phone stays visible behind choice panel) ===
       { type: "show_choice" },
     ],
   },

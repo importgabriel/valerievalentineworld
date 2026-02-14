@@ -8,8 +8,9 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { buildSubwayScene } from "./level01/SubwayScene.js";
-import { buildCityScene, JPMORGAN_ENTRANCE, CITY_BOUNDS } from "./level01/CityScene.js";
+import { buildCityScene, BUILDING_ENTRANCE, CITY_BOUNDS } from "./level01/CityScene.js";
 import { buildOfficeScene, INTERACTION_POINTS, OFFICE_BOUNDS } from "./level01/OfficeScene.js";
 import { PlayerController } from "./level01/PlayerController.js";
 import { InteractionSystem } from "./level01/InteractionSystem.js";
@@ -32,25 +33,26 @@ const PHASES = {
 // ========================================
 
 export async function create(chapter, renderer) {
-  // Load all GLB models in parallel
+  // Load all GLB/FBX models in parallel
   const gltfLoader = new GLTFLoader();
-  const [subwayGltf, cityGltf, peopleGltf] = await Promise.all([
+  const fbxLoader = new FBXLoader();
+  const [subwayGltf, cityGltf, peopleGltf, edificioGltf, walkingFbx] = await Promise.all([
     gltfLoader.loadAsync("/models/environment/subway_bar.glb"),
     gltfLoader.loadAsync("/models/environment/lowpoly.glb"),
     gltfLoader.loadAsync("/models/environment/low_poly_people_free_sample_pack.glb"),
+    gltfLoader.loadAsync("/models/edificio_corficolombiana_colombian_skyscraper.glb"),
+    fbxLoader.loadAsync("/models/animations/Walking.fbx").catch(() => null),
   ]);
 
-  // To use individual character files instead of the pack, replace peopleGltf above:
-  // const peopleGltfs = await Promise.all([
-  //   gltfLoader.loadAsync("/models/people/character1.glb"),
-  //   gltfLoader.loadAsync("/models/people/character2.glb"),
-  //   // ... add more as needed
-  // ]);
-  // Then pass peopleGltfs (array) to buildCityScene instead of peopleGltf
+  // Extract NPC walk animation clip from FBX
+  let npcWalkClip = null;
+  if (walkingFbx && walkingFbx.animations && walkingFbx.animations.length > 0) {
+    npcWalkClip = walkingFbx.animations[0];
+  }
 
   // Build all sub-scenes with loaded models
   const subway = buildSubwayScene(subwayGltf);
-  const city = buildCityScene(cityGltf, peopleGltf);
+  const city = buildCityScene(cityGltf, peopleGltf, { edificioGltf, walkClip: npcWalkClip });
   const office = buildOfficeScene();
 
   // Current phase state
@@ -142,10 +144,10 @@ export async function create(chapter, renderer) {
           ));
         }
 
-        // JPMorgan building (14x14 footprint centered at z=137)
-        playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(-7, 0, 130), new THREE.Vector3(7, 60, 144)
-        ));
+        // Edificio building collider (computed from model bounds)
+        if (city.edificioCollider) {
+          playerController.addCollider(city.edificioCollider);
+        }
 
         // Auto-generate colliders from city GLB model (buildings, trees, etc.)
         if (city.cityModel) {
@@ -212,14 +214,8 @@ export async function create(chapter, renderer) {
           new THREE.Vector3(6.6, 0, -5.9), new THREE.Vector3(7.4, 1.5, -5.1)
         ));
 
-        // Collect ground meshes for raycasting
-        const officeGroundMeshes = [];
-        office.scene.traverse((child) => {
-          if (child.isMesh && child.geometry) {
-            officeGroundMeshes.push(child);
-          }
-        });
-        playerController.setGroundMeshes(officeGroundMeshes);
+        // Use only floor mesh for raycasting (not furniture/walls/etc)
+        playerController.setGroundMeshes(office.groundMeshes || []);
         playerController.currentGroundY = 0;
 
         pp.updateScene(office.scene, office.camera);
@@ -353,6 +349,22 @@ export async function create(chapter, renderer) {
       trainArrive(ctx) {
         if (subway.startTrainArrival) {
           subway.startTrainArrival();
+        }
+      },
+
+      positionCityCamera(ctx) {
+        // Position camera behind player before fade reveals city
+        if (city.camera) {
+          city.camera.position.set(0, 3, -8);
+          city.camera.lookAt(0, 2, 10);
+        }
+      },
+
+      positionOfficeCamera(ctx) {
+        // Position camera behind player before fade reveals office
+        if (office.camera) {
+          office.camera.position.set(0, 2.5, 7);
+          office.camera.lookAt(0, 1.5, 0);
         }
       },
 
