@@ -137,28 +137,28 @@ export const chapters = [
 
       // === PHASE 6: PHONE NOTIFICATION ===
       // Mini phone pops up in top-right with notification
-      { type: "custom_callback", callbackName: "showMiniPhone", duration: 0.5 },
-      { type: "wait", duration: 1.0 },
+      { type: "custom_callback", callbackName: "showMiniPhone", duration: 0.3 },
+      { type: "wait", duration: 0.4 },
 
       // Player presses A to check phone
       { type: "key_prompt", key: "A", promptText: "Check phone" },
-      { type: "custom_callback", callbackName: "checkPhone", duration: 0.3 },
-      { type: "wait", duration: 2.0 },
+      { type: "custom_callback", callbackName: "checkPhone", duration: 0.2 },
+      { type: "wait", duration: 0.6 },
       {
         type: "text_bubble",
         text: "valerie.rengifo started following you.",
         style: "notification",
         enterAnimation: "rise",
-        duration: 3.0,
+        duration: 2.0,
         offsetY: 0.5,
       },
-      { type: "wait", duration: 1.0 },
+      { type: "wait", duration: 0.3 },
       {
         type: "reaction",
         kind: "surprise",
-        duration: 1.5,
+        duration: 1.0,
       },
-      { type: "custom_callback", callbackName: "cameraToChoice", duration: 1.0 },
+      { type: "custom_callback", callbackName: "cameraToChoice", duration: 0.5 },
 
       // === PHASE 7: CHOICE (phone stays visible behind choice panel) ===
       { type: "show_choice" },

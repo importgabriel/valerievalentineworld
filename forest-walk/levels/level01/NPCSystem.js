@@ -214,7 +214,10 @@ export class GLBNPCSystem {
           npc.scale.multiplyScalar(targetHeight / height);
         }
 
-        npc.position.set(0, 0, 0);
+        // Reset position; base of character should sit at y=0
+        const scaledBox = new THREE.Box3().setFromObject(npc);
+        npc.position.y = -scaledBox.min.y;
+
         npc.traverse((child) => {
           if (child.isMesh) {
             child.castShadow = true;
@@ -341,8 +344,9 @@ export class GLBNPCSystem {
   }
 
   _addSilhouetteNPCs(count) {
-    // Add colorful silhouette NPCs that are always visible
-    const actualCount = Math.max(count, 25); // Always at least 25 visible silhouettes
+    // Add colorful silhouette NPCs as fallback when GLB/FBX NPCs aren't available
+    if (count <= 0) return; // Skip if GLB/FBX NPCs are already placed
+    const actualCount = Math.max(count, 25);
     for (let i = 0; i < actualCount; i++) {
       const xRange = this.walkableXRanges[i % this.walkableXRanges.length];
       const x = xRange[0] + Math.random() * (xRange[1] - xRange[0]);

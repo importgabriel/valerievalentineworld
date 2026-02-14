@@ -18,6 +18,48 @@ import { ComputerScreen } from "./level01/ComputerScreen.js";
 import { PhoneUI } from "./level01/PhoneUI.js";
 import { createPostprocessing, disposeScene } from "./levelUtils.js";
 
+/**
+ * Load the business-man NPC model (FBX) and apply its textures.
+ */
+async function loadBusinessManNPC(fbxLoader, textureLoader) {
+  try {
+    const fbx = await fbxLoader.loadAsync("/models/npc/business-man-low-polygon-game-character/source/Business_Man.fbx");
+
+    const albedo = await textureLoader.loadAsync("/models/npc/business-man-low-polygon-game-character/textures/business_man_albedo.png");
+    albedo.colorSpace = THREE.SRGBColorSpace;
+
+    let normalMap = null;
+    let aoMap = null;
+    try {
+      normalMap = await textureLoader.loadAsync("/models/npc/business-man-low-polygon-game-character/textures/business_man_normal.png");
+      aoMap = await textureLoader.loadAsync("/models/npc/business-man-low-polygon-game-character/textures/business_man_ao.png");
+    } catch (e) {
+      // Optional textures — continue without them
+    }
+
+    const npcMaterial = new THREE.MeshStandardMaterial({
+      map: albedo,
+      normalMap: normalMap,
+      aoMap: aoMap,
+      roughness: 0.7,
+      metalness: 0.1,
+    });
+
+    fbx.traverse((child) => {
+      if (child.isMesh) {
+        child.material = npcMaterial;
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    return fbx;
+  } catch (e) {
+    console.warn("Failed to load business-man NPC:", e);
+    return null;
+  }
+}
+
 // ========================================
 // PHASES
 // ========================================
@@ -36,12 +78,13 @@ export async function create(chapter, renderer) {
   // Load all GLB/FBX models in parallel
   const gltfLoader = new GLTFLoader();
   const fbxLoader = new FBXLoader();
-  const [subwayGltf, cityGltf, peopleGltf, edificioGltf, walkingFbx] = await Promise.all([
+  const textureLoader = new THREE.TextureLoader();
+  const [subwayGltf, cityGltf, edificioGltf, walkingFbx, businessManNPC] = await Promise.all([
     gltfLoader.loadAsync("/models/environment/subway_bar.glb"),
     gltfLoader.loadAsync("/models/environment/lowpoly.glb"),
-    gltfLoader.loadAsync("/models/environment/low_poly_people_free_sample_pack.glb"),
     gltfLoader.loadAsync("/models/edificio_corficolombiana_colombian_skyscraper.glb"),
     fbxLoader.loadAsync("/models/animations/Walking.fbx").catch(() => null),
+    loadBusinessManNPC(fbxLoader, textureLoader),
   ]);
 
   // Extract NPC walk animation clip from FBX
@@ -50,10 +93,13 @@ export async function create(chapter, renderer) {
     npcWalkClip = walkingFbx.animations[0];
   }
 
+  // Wrap business-man NPC as a GLTF-like object for the NPC system
+  const npcGltfs = businessManNPC ? [{ scene: businessManNPC }] : null;
+
   // Build all sub-scenes with loaded models
   const subway = buildSubwayScene(subwayGltf);
-  const city = buildCityScene(cityGltf, peopleGltf, { edificioGltf, walkClip: npcWalkClip });
-  const office = buildOfficeScene();
+  const city = buildCityScene(cityGltf, npcGltfs, { edificioGltf, walkClip: npcWalkClip });
+  const office = buildOfficeScene({ npcTemplate: businessManNPC ? businessManNPC.clone() : null });
 
   // Current phase state
   let currentPhase = PHASES.SUBWAY;
@@ -158,9 +204,9 @@ export async function create(chapter, renderer) {
             _tempBox.setFromObject(child);
             _tempBox.getSize(_tempSize);
             // Skip tiny objects, ground planes, and overly large objects
-            if (_tempSize.y < 0.5 || _tempSize.x > 80 || _tempSize.z > 80) return;
-            // Only add colliders for objects taller than ~1 unit (buildings, trees, walls)
-            if (_tempSize.y > 1.0) {
+            if (_tempSize.y < 0.3 || _tempSize.x > 80 || _tempSize.z > 80) return;
+            // Add colliders for objects taller than 0.5 units (buildings, trees, walls, fences)
+            if (_tempSize.y > 0.5) {
               playerController.addCollider(_tempBox.clone());
             }
           });
@@ -177,6 +223,7 @@ export async function create(chapter, renderer) {
         activeSubScene = office;
         office.scene.add(playerAnchor);
         playerAnchor.position.set(0, 0, 4);
+        playerAnchor.rotation.y = Math.PI; // Face Snoopy toward the desk (forward into office)
         playerController.camera = office.camera;
         playerController.setBounds(OFFICE_BOUNDS);
         playerController.yaw = Math.PI;
@@ -187,21 +234,21 @@ export async function create(chapter, renderer) {
         playerController.cfg.camHeight = 2.0;
         playerController.cfg.camLookAtHeight = 1.5;
 
-        // Player's L-desk (main surface + extension)
+        // Player's L-desk (main surface + extension) — padded for character model width
         playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(-0.9, 0, 0.0), new THREE.Vector3(1.5, 1.5, 1.0)
+          new THREE.Vector3(-1.2, 0, -0.3), new THREE.Vector3(1.8, 1.5, 1.3)
         ));
         playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(1.5, 0, -0.1), new THREE.Vector3(2.3, 1.5, 0.6)
+          new THREE.Vector3(1.3, 0, -0.4), new THREE.Vector3(2.6, 1.5, 0.9)
         ));
 
-        // Left coworker desk (x=-4, z=0.5, 2.0 wide x 0.9 deep)
+        // Left coworker desk (x=-4, z=0.5, 2.0 wide x 0.9 deep) — padded
         playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(-5.0, 0, 0.05), new THREE.Vector3(-3.0, 1.5, 0.95)
+          new THREE.Vector3(-5.3, 0, -0.25), new THREE.Vector3(-2.7, 1.5, 1.25)
         ));
-        // Right coworker desk (x=4, z=0.5)
+        // Right coworker desk (x=4, z=0.5) — padded
         playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(3.0, 0, 0.05), new THREE.Vector3(5.0, 1.5, 0.95)
+          new THREE.Vector3(2.7, 0, -0.25), new THREE.Vector3(5.3, 1.5, 1.25)
         ));
 
         // Filing cabinets along back wall
@@ -213,6 +260,13 @@ export async function create(chapter, renderer) {
         playerController.addCollider(new THREE.Box3(
           new THREE.Vector3(6.6, 0, -5.9), new THREE.Vector3(7.4, 1.5, -5.1)
         ));
+
+        // Plant colliders (from OfficeScene)
+        if (office.plantColliders) {
+          for (const collider of office.plantColliders) {
+            playerController.addCollider(collider);
+          }
+        }
 
         // Use only floor mesh for raycasting (not furniture/walls/etc)
         playerController.setGroundMeshes(office.groundMeshes || []);

@@ -23,7 +23,7 @@ export const OFFICE_BOUNDS = {
   maxZ: 5,
 };
 
-export function buildOfficeScene() {
+export function buildOfficeScene(options = {}) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(PALETTE.skyWarm);
   scene.fog = new THREE.Fog(PALETTE.skyWarm, 40, 80);
@@ -35,8 +35,8 @@ export function buildOfficeScene() {
   createCitySkyline(scene, roomDims);
   const furniture = createFurniture(scene);
   createOtherDesks(scene);
-  createDecor(scene);
-  createNPCWorkers(scene);
+  const plantColliders = createDecor(scene);
+  createNPCWorkers(scene, options.npcTemplate);
   const { sunLight } = createLighting(scene);
 
   return {
@@ -45,6 +45,7 @@ export function buildOfficeScene() {
     furniture,
     sunLight,
     groundMeshes: [floorMesh],
+    plantColliders,
 
     // Monitor mesh reference for overlay positioning
     monitorScreen: furniture.monitorScreen,
@@ -463,6 +464,7 @@ function createOtherDesks(scene) {
 
 function createDecor(scene) {
   const { roomW, roomD } = { roomW: 16, roomD: 12 };
+  const colliders = [];
 
   // Filing cabinets along back wall
   const cabinetGeos = [];
@@ -525,6 +527,12 @@ function createDecor(scene) {
 
     potGroup.position.set(px, py, pz);
     scene.add(potGroup);
+
+    // Add collider for each plant (box around pot + leaves)
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(px - 0.4, 0, pz - 0.4),
+      new THREE.Vector3(px + 0.4, 1.2, pz + 0.4)
+    ));
   }
 
   // Whiteboard on side wall
@@ -563,9 +571,11 @@ function createDecor(scene) {
     scene.add(new THREE.Mesh(mergeGeometries(wbFrameGeos), frameMat));
     wbFrameGeos.forEach(g => g.dispose());
   }
+
+  return colliders;
 }
 
-function createNPCWorkers(scene) {
+function createNPCWorkers(scene, npcTemplate) {
   // 2 NPCs at other desks
   const npcConfigs = [
     { x: -4, z: -0.3, seated: true },
@@ -573,8 +583,28 @@ function createNPCWorkers(scene) {
   ];
 
   npcConfigs.forEach(cfg => {
-    const npc = createNPCSilhouette({ seated: cfg.seated });
-    npc.position.set(cfg.x, 0, cfg.z);
+    let npc;
+    if (npcTemplate) {
+      npc = npcTemplate.clone();
+      // Auto-scale to seated height (~1.4 units)
+      const box = new THREE.Box3().setFromObject(npc);
+      const height = box.max.y - box.min.y;
+      if (height > 0) {
+        const targetHeight = cfg.seated ? 1.4 : 1.8;
+        npc.scale.multiplyScalar(targetHeight / height);
+      }
+      npc.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+    } else {
+      npc = createNPCSilhouette({ seated: cfg.seated });
+    }
+    npc.position.set(cfg.x, cfg.seated ? 0.48 : 0, cfg.z);
+    // Face the desk (toward +Z)
+    npc.rotation.y = 0;
     scene.add(npc);
   });
 }
