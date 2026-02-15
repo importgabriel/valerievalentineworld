@@ -39,6 +39,9 @@ export function buildCityScene(cityGltf, peopleGltf, options = {}) {
   buildSubwayExit(scene);
   buildStreetElements(scene);
 
+  // Compute building colliders from city model for NPC avoidance
+  const buildingColliders = computeBuildingColliders(cityModel, edificio);
+
   // NPC system — accepts people pack GLTF or array of individual character GLTFs
   let npcSystem = null;
   if (peopleGltf) {
@@ -52,6 +55,7 @@ export function buildCityScene(cityGltf, peopleGltf, options = {}) {
         [8, 12],
       ],
       walkClip: options.walkClip || null,
+      buildingColliders,
     });
   }
 
@@ -73,6 +77,7 @@ export function buildCityScene(cityGltf, peopleGltf, options = {}) {
     cityModel,
     groundMeshes,
     edificioCollider: edificio ? edificio.collider : null,
+    buildingColliders,
 
     update(dt) {
       if (npcSystem) npcSystem.update(dt);
@@ -500,6 +505,72 @@ function buildNavigationWaypoint(scene) {
   group.position.set(0, 8, entranceZ);
   scene.add(group);
   return group;
+}
+
+// ========================================
+// BUILDING COLLIDERS — for NPC avoidance
+// ========================================
+
+function computeBuildingColliders(cityModel, edificio) {
+  const colliders = [];
+
+  // Hardcoded major boundaries — buildings on far sides and road in center
+  // Far left buildings
+  colliders.push(new THREE.Box3(
+    new THREE.Vector3(-40, 0, -20), new THREE.Vector3(-22, 10, 160)
+  ));
+  // Far right buildings
+  colliders.push(new THREE.Box3(
+    new THREE.Vector3(22, 0, -20), new THREE.Vector3(40, 10, 160)
+  ));
+  // Road (center strip — keep NPCs on sidewalks)
+  colliders.push(new THREE.Box3(
+    new THREE.Vector3(-4, 0, -20), new THREE.Vector3(4, 10, 160)
+  ));
+
+  // Lamp post colliders
+  for (let z = 0; z < 140; z += 15) {
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(-5.4, 0, z - 0.4), new THREE.Vector3(-4.6, 6, z + 0.4)
+    ));
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(4.6, 0, z - 0.4), new THREE.Vector3(5.4, 6, z + 0.4)
+    ));
+  }
+
+  // Traffic light colliders
+  for (const tz of [0, 30, 60, 90, 120]) {
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(-4.4, 0, tz - 0.4), new THREE.Vector3(-3.6, 5, tz + 0.4)
+    ));
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(3.6, 0, tz - 0.4), new THREE.Vector3(4.4, 5, tz + 0.4)
+    ));
+  }
+
+  // Edificio building collider
+  if (edificio && edificio.collider) {
+    colliders.push(edificio.collider);
+  }
+
+  // Auto-generate colliders from city GLB model meshes (buildings, trees, etc.)
+  if (cityModel) {
+    const _tempBox = new THREE.Box3();
+    const _tempSize = new THREE.Vector3();
+    cityModel.traverse((child) => {
+      if (!child.isMesh) return;
+      _tempBox.setFromObject(child);
+      _tempBox.getSize(_tempSize);
+      // Skip tiny objects, ground planes, and overly large objects
+      if (_tempSize.y < 0.3 || _tempSize.x > 80 || _tempSize.z > 80) return;
+      // Add colliders for objects taller than 0.5 units (buildings, trees, walls, fences)
+      if (_tempSize.y > 0.5) {
+        colliders.push(_tempBox.clone());
+      }
+    });
+  }
+
+  return colliders;
 }
 
 // ========================================
