@@ -146,10 +146,8 @@ export async function create(chapter, renderer) {
     switch (phase) {
       case PHASES.SUBWAY:
         activeSubScene = subway;
-        // Place Snoopy on the platform so he's visible during the cinematic
-        subway.scene.add(playerAnchor);
-        playerAnchor.position.set(3, 0.8, 2);
-        playerAnchor.rotation.y = -Math.PI / 2; // Face toward the tracks
+        // Place Snoopy inside the subway train so he rides in and exits when doors open
+        subway.placeCharacterInTrain(playerAnchor);
         pp.updateScene(subway.scene, subway.camera);
         break;
 
@@ -162,58 +160,11 @@ export async function create(chapter, renderer) {
         playerController.yaw = 0;
         playerController.pitch = 0.3;
 
-        // Building colliders (simplified — road and building fronts)
-        playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(-40, 0, -20), new THREE.Vector3(-22, 10, 160)
-        ));
-        playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(22, 0, -20), new THREE.Vector3(40, 10, 160)
-        ));
-        // Road collider (keep player on sidewalks)
-        playerController.addCollider(new THREE.Box3(
-          new THREE.Vector3(-4, 0, -20), new THREE.Vector3(4, 10, 160)
-        ));
-
-        // Lamp post colliders (at x=+-5, every 15 units along z)
-        for (let z = 0; z < 140; z += 15) {
-          playerController.addCollider(new THREE.Box3(
-            new THREE.Vector3(-5.4, 0, z - 0.4), new THREE.Vector3(-4.6, 6, z + 0.4)
-          ));
-          playerController.addCollider(new THREE.Box3(
-            new THREE.Vector3(4.6, 0, z - 0.4), new THREE.Vector3(5.4, 6, z + 0.4)
-          ));
-        }
-
-        // Traffic light colliders (at x=+-4, at key intersections)
-        for (const tz of [0, 30, 60, 90, 120]) {
-          playerController.addCollider(new THREE.Box3(
-            new THREE.Vector3(-4.4, 0, tz - 0.4), new THREE.Vector3(-3.6, 5, tz + 0.4)
-          ));
-          playerController.addCollider(new THREE.Box3(
-            new THREE.Vector3(3.6, 0, tz - 0.4), new THREE.Vector3(4.4, 5, tz + 0.4)
-          ));
-        }
-
-        // Edificio building collider (computed from model bounds)
-        if (city.edificioCollider) {
-          playerController.addCollider(city.edificioCollider);
-        }
-
-        // Auto-generate colliders from city GLB model (buildings, trees, etc.)
-        if (city.cityModel) {
-          const _tempBox = new THREE.Box3();
-          const _tempSize = new THREE.Vector3();
-          city.cityModel.traverse((child) => {
-            if (!child.isMesh) return;
-            _tempBox.setFromObject(child);
-            _tempBox.getSize(_tempSize);
-            // Skip tiny objects, ground planes, and overly large objects
-            if (_tempSize.y < 0.3 || _tempSize.x > 80 || _tempSize.z > 80) return;
-            // Add colliders for objects taller than 0.5 units (buildings, trees, walls, fences)
-            if (_tempSize.y > 0.5) {
-              playerController.addCollider(_tempBox.clone());
-            }
-          });
+        // Use pre-computed building colliders from city scene (shared with NPCs)
+        if (city.buildingColliders) {
+          for (const collider of city.buildingColliders) {
+            playerController.addCollider(collider);
+          }
         }
 
         // Use only flat ground surfaces for raycasting (not buildings/lamps/NPCs)

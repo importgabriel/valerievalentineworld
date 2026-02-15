@@ -179,6 +179,7 @@ export class GLBNPCSystem {
     this.npcs = [];
     this.mixers = [];
     this.walkClip = options.walkClip || null;
+    this.buildingColliders = options.buildingColliders || [];
 
     // Support both individual GLTFs array and single pack
     if (Array.isArray(peopleGltf)) {
@@ -297,7 +298,15 @@ export class GLBNPCSystem {
   _placeNPC(npcModel, index) {
     const xRange = this.walkableXRanges[index % this.walkableXRanges.length];
     const x = xRange[0] + Math.random() * (xRange[1] - xRange[0]);
-    const z = this.bounds.minZ + Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+    let z = this.bounds.minZ + Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+
+    // Avoid spawning inside buildings — try up to 5 random positions
+    if (this.buildingColliders.length > 0) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (!this._isInsideCollider(x, z)) break;
+        z = this.bounds.minZ + Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+      }
+    }
 
     const npcGroup = new THREE.Group();
     npcGroup.add(npcModel);
@@ -350,7 +359,15 @@ export class GLBNPCSystem {
     for (let i = 0; i < actualCount; i++) {
       const xRange = this.walkableXRanges[i % this.walkableXRanges.length];
       const x = xRange[0] + Math.random() * (xRange[1] - xRange[0]);
-      const z = this.bounds.minZ + Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+      let z = this.bounds.minZ + Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+
+      // Avoid spawning inside buildings
+      if (this.buildingColliders.length > 0) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          if (!this._isInsideCollider(x, z)) break;
+          z = this.bounds.minZ + Math.random() * (this.bounds.maxZ - this.bounds.minZ);
+        }
+      }
 
       const npc = createNPCSilhouette({ seated: false });
       npc.position.set(x, 0, z);
@@ -370,11 +387,43 @@ export class GLBNPCSystem {
     }
   }
 
+  setBuildingColliders(colliders) {
+    this.buildingColliders = colliders;
+  }
+
+  _isInsideCollider(x, z) {
+    for (const box of this.buildingColliders) {
+      if (x > box.min.x && x < box.max.x &&
+          z > box.min.z && z < box.max.z) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   update(dt) {
     for (const npc of this.npcs) {
       if (npc.isStationary) continue;
 
       npc.group.position.z += npc.speed * npc.direction * dt;
+
+      // Check building collision — if NPC entered a building, push past it
+      if (this.buildingColliders.length > 0) {
+        const px = npc.group.position.x;
+        const pz = npc.group.position.z;
+        for (const box of this.buildingColliders) {
+          if (px > box.min.x && px < box.max.x &&
+              pz > box.min.z && pz < box.max.z) {
+            // Skip past the collider in the direction of travel
+            if (npc.direction > 0) {
+              npc.group.position.z = box.max.z + 0.5;
+            } else {
+              npc.group.position.z = box.min.z - 0.5;
+            }
+            break;
+          }
+        }
+      }
 
       // Procedural walk bob for silhouette NPCs (slight up/down motion)
       const walkCycle = (performance.now() * 0.003 * npc.speed) % (Math.PI * 2);

@@ -60,10 +60,28 @@ export function buildSubwayScene(subwayGltf) {
   let trainSpeed = 0;
   const baseCamY = 1.6;
 
+  // Character exit animation state
+  let exitingCharacter = null;
+  let characterInTrain = null; // Reference to the character placed inside the train
+  const exitStart = new THREE.Vector3();
+  const exitEnd = new THREE.Vector3(3, 0.8, 2); // Platform position
+
   return {
     scene,
     camera,
     trainGroup,
+
+    /**
+     * Place a character (playerAnchor) inside the train so it rides in.
+     * The character will be reparented to the trainGroup.
+     */
+    placeCharacterInTrain(characterObj) {
+      trainGroup.add(characterObj);
+      // Position inside the car: center of car, standing on the train floor
+      characterObj.position.set(0, 0.15, 0);
+      characterObj.rotation.y = Math.PI / 2; // Face toward platform side
+      characterInTrain = characterObj;
+    },
 
     startTrainArrival() {
       if (trainState === TRAIN_STATES.WAITING) {
@@ -140,7 +158,7 @@ export function buildSubwayScene(subwayGltf) {
           // Animate doors sliding open over 0.6s
           const doorT = Math.min(stateTimer / 0.6, 1);
           const doorEased = 1 - Math.pow(1 - doorT, 3); // easeOutCubic
-          const slideAmount = doorEased * 0.7;
+          const slideAmount = doorEased * 0.75;
 
           for (const pair of platformDoors) {
             pair.left.position.z = pair.closedLeftZ - slideAmount;
@@ -150,15 +168,39 @@ export function buildSubwayScene(subwayGltf) {
           if (stateTimer > 1.5) {
             trainState = TRAIN_STATES.CHARACTER_EXIT;
             stateTimer = 0;
+
+            // Reparent character from train to scene for exit walk
+            if (exitingCharacter === null && characterInTrain) {
+              // Get world position before reparenting
+              const worldPos = new THREE.Vector3();
+              characterInTrain.getWorldPosition(worldPos);
+              trainGroup.remove(characterInTrain);
+              scene.add(characterInTrain);
+              characterInTrain.position.copy(worldPos);
+              exitStart.copy(worldPos);
+              exitingCharacter = characterInTrain;
+              characterInTrain = null;
+            }
           }
           break;
         }
 
-        case TRAIN_STATES.CHARACTER_EXIT:
+        case TRAIN_STATES.CHARACTER_EXIT: {
+          // Animate character walking from train to platform
+          if (exitingCharacter) {
+            const exitT = Math.min(stateTimer / 1.8, 1);
+            const easedT = exitT < 0.5
+              ? 2 * exitT * exitT
+              : 1 - Math.pow(-2 * exitT + 2, 2) / 2; // easeInOutQuad
+            exitingCharacter.position.lerpVectors(exitStart, exitEnd, easedT);
+            // Rotate to face walking direction (toward platform)
+            exitingCharacter.rotation.y = Math.PI / 2 * (1 - easedT) + (-Math.PI / 2) * easedT;
+          }
           if (stateTimer > 2.0) {
             trainState = TRAIN_STATES.DONE;
           }
           break;
+        }
 
         case TRAIN_STATES.DONE:
           break;
@@ -426,35 +468,58 @@ function buildProceduralTrain() {
     }
   }
 
-  // Door areas (wider windows in the middle and ends)
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x666677, roughness: 0.3, metalness: 0.4 });
+  // Door areas — 3D doors with visible openings
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x99999a, roughness: 0.2, metalness: 0.5 });
+  const doorInteriorMat = new THREE.MeshStandardMaterial({ color: 0x0a0a14, roughness: 0.9 });
+  const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 0.3, metalness: 0.6 });
   const platformDoors = [];
 
-  // Non-platform side doors (side=-1) — static
+  // Non-platform side doors (side=-1) — static 3D doors
   for (const dz of [-carLength / 4, 0, carLength / 4]) {
-    const door = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.2), doorMat);
-    door.position.set(-(carWidth / 2 + 0.01), carHeight / 2 - 0.1, dz);
-    door.rotation.y = Math.PI / 2;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.2, 1.4), doorMat);
+    door.position.set(-(carWidth / 2 + 0.03), carHeight / 2 - 0.1, dz);
     group.add(door);
   }
 
-  // Platform-facing doors (side=1) — sliding pairs that animate open
+  // Platform-facing doors (side=1) — 3D sliding pairs that animate open
   for (const dz of [-carLength / 4, 0, carLength / 4]) {
-    const leftDoor = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 2.2), doorMat);
-    leftDoor.position.set(carWidth / 2 + 0.01, carHeight / 2 - 0.1, dz - 0.35);
-    leftDoor.rotation.y = -Math.PI / 2;
+    // Dark interior opening — visible when doors slide open
+    const opening = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 2.3, 1.5),
+      doorInteriorMat
+    );
+    opening.position.set(carWidth / 2 - 0.04, carHeight / 2 - 0.1, dz);
+    group.add(opening);
+
+    // Door frame — top bar
+    const topFrame = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 1.6), doorFrameMat);
+    topFrame.position.set(carWidth / 2 + 0.03, carHeight / 2 - 0.1 + 1.15, dz);
+    group.add(topFrame);
+
+    // Door frame — side bars
+    for (const side of [-1, 1]) {
+      const sideFrame = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.3, 0.08), doorFrameMat);
+      sideFrame.position.set(carWidth / 2 + 0.03, carHeight / 2 - 0.1, dz + side * 0.8);
+      group.add(sideFrame);
+    }
+
+    // Left door panel (3D box)
+    const leftDoor = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.72), doorMat);
+    leftDoor.position.set(carWidth / 2 + 0.04, carHeight / 2 - 0.1, dz - 0.37);
+    leftDoor.castShadow = true;
     group.add(leftDoor);
 
-    const rightDoor = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 2.2), doorMat);
-    rightDoor.position.set(carWidth / 2 + 0.01, carHeight / 2 - 0.1, dz + 0.35);
-    rightDoor.rotation.y = -Math.PI / 2;
+    // Right door panel (3D box)
+    const rightDoor = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.72), doorMat);
+    rightDoor.position.set(carWidth / 2 + 0.04, carHeight / 2 - 0.1, dz + 0.37);
+    rightDoor.castShadow = true;
     group.add(rightDoor);
 
     platformDoors.push({
       left: leftDoor,
       right: rightDoor,
-      closedLeftZ: dz - 0.35,
-      closedRightZ: dz + 0.35,
+      closedLeftZ: dz - 0.37,
+      closedRightZ: dz + 0.37,
     });
   }
 
